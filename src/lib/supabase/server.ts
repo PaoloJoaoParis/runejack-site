@@ -1,8 +1,12 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 
 export async function createSupabaseServerClient() {
+  // La session change à chaque requête : on interdit à Next.js de la précalculer au build.
+  // Sans cette ligne, Supabase lit l'heure (Date.now) pendant le précalcul et Next.js plante.
+  await connection();
   const cookieStore = await cookies();
 
   return createServerClient(
