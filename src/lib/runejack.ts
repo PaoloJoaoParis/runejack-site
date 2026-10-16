@@ -112,3 +112,30 @@ export async function loadStats(type: TargetType, revalidate?: number): Promise<
 export function findStatLine(lines: StatLine[], element: GameElement): StatLine | undefined {
   return lines.find((line) => (line.id ? line.id === element.id : line.name === element.name));
 }
+
+// Ajoute un e-mail à la liste d'accès du jeu, avec le secret réservé aux invitations
+export async function inviteTester(email: string, note: string): Promise<{ email: string; alreadyInvited: boolean }> {
+  const baseUrl = process.env.RUNEJACK_API_URL;
+  const secret = process.env.INVITATIONS_SECRET;
+
+  if (!baseUrl || !secret) {
+    throw new RunejackError("La configuration des invitations est incomplète.", 500);
+  }
+
+  const response = await fetch(`${baseUrl}/api/testeurs`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, note }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    console.error(`Invitation refusée par le jeu (${response.status}) : ${detail}`);
+    throw new RunejackError(`Le jeu a refusé l'invitation (statut ${response.status}).`, response.status);
+  }
+
+  const data = (await response.json()) as { email: string; dejaInvite: boolean };
+  return { email: data.email, alreadyInvited: data.dejaInvite };
+}

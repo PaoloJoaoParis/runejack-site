@@ -12,15 +12,131 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Styles de base des éléments HTML. Placés dans la couche "base" de Tailwind :
+   les classes Tailwind déjà présentes sur certains éléments restent prioritaires. */
+@layer base {
+  main {
+    max-width: 56rem;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+
+  h1 {
+    font-size: 1.875rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 2rem 0 0.75rem;
+  }
+
+  h3 {
+    font-weight: 600;
+    margin: 1rem 0 0.5rem;
+  }
+
+  p,
+  form > div,
+  fieldset,
+  ul,
+  ol,
+  table {
+    margin-bottom: 1rem;
+  }
+
+  a {
+    color: #2563eb;
+    text-decoration: underline;
+  }
+
+  ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+  }
+
+  ol {
+    list-style: decimal;
+    padding-left: 1.5rem;
+  }
+
+  button {
+    background: #2563eb;
+    color: #ffffff;
+    border-radius: 0.375rem;
+    padding: 0.5rem 1rem;
+    margin: 0 0.5rem 0.5rem 0;
+    cursor: pointer;
+  }
+
+  button[aria-pressed="false"] {
+    background: #e5e7eb;
+    color: #111827;
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  input:not([type="checkbox"]),
+  textarea,
+  select {
+    border: 1px solid #9ca3af;
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+    width: 100%;
+    max-width: 40rem;
+    margin-top: 0.25rem;
+  }
+
+  input[type="checkbox"] {
+    margin-right: 0.5rem;
+  }
+
+  label {
+    font-weight: 500;
+  }
+
+  fieldset legend {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Le bouton « Se déconnecter » de l'en-tête reste un simple lien */
+  header button {
+    background: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  article {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+  }
+
+  [role="alert"] {
+    color: #b91c1c;
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+  }
+
+  th,
+  td {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0.5rem;
+    text-align: left;
+    vertical-align: top;
+  }
 }
