@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
@@ -15,7 +16,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="fr" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
-        <Header />
+        {/* L'en-tête lit la session (cookies) : il est calculé à chaque requête */}
+        <Suspense fallback={<header className="h-[61px] border-b" />}>
+          <Header />
+        </Suspense>
         {children}
       </body>
     </html>
