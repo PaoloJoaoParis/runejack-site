@@ -21,6 +21,7 @@ export default async function Header() {
           <>
             <Link href="/retours/nouveau">Envoyer un retour</Link>
             <Link href="/retours">Mes retours</Link>
+            <Link href="/mes-stats">Mes stats</Link>
             {isAdmin(user) && <Link href="/admin">Admin</Link>}
             <LogoutButton />
           </>

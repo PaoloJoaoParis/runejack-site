@@ -1,4 +1,5 @@
 import "server-only";
+import type { MeasuredMeta, PlayersMeta, PlayerStats } from "@/lib/meta";
 
 export class RunejackError extends Error {
   status: number;
@@ -138,4 +139,68 @@ export async function inviteTester(email: string, note: string): Promise<{ email
 
   const data = (await response.json()) as { email: string; dejaInvite: boolean };
   return { email: data.email, alreadyInvited: data.dejaInvite };
+}
+
+const ONE_HOUR = 3600;
+// Le premier calcul de l'heure de la méta des joueurs peut prendre une à deux secondes côté jeu
+const META_TIMEOUT_MS = 10000;
+
+// Routes publiques de la méta : aucune clé n'est envoyée
+async function fetchPublicMeta<T>(path: string): Promise<T> {
+  const baseUrl = process.env.RUNEJACK_API_URL;
+  if (!baseUrl) {
+    throw new RunejackError("La variable RUNEJACK_API_URL n'est pas définie.", 500);
+  }
+
+  const response = await fetch(`${baseUrl}${path}`, {
+    signal: AbortSignal.timeout(META_TIMEOUT_MS),
+    next: { revalidate: ONE_HOUR },
+  });
+
+  if (!response.ok) {
+    console.error(`Méta du jeu indisponible sur ${path} (${response.status})`);
+    throw new RunejackError(`La méta du jeu a répondu avec le statut ${response.status}.`, response.status);
+  }
+
+  return (await response.json()) as T;
+}
+
+// Méta mesurée par simulation : figée jusqu'au prochain rééquilibrage, gardée une heure en cache
+export function loadMeasuredMeta(): Promise<MeasuredMeta> {
+  return fetchPublicMeta<MeasuredMeta>("/api/meta");
+}
+
+// Méta des joueurs, tirée des vraies runs : recalculée au plus une fois par heure par le jeu
+export function loadPlayersMeta(): Promise<PlayersMeta> {
+  return fetchPublicMeta<PlayersMeta>("/api/meta/joueurs");
+}
+
+// Statistiques d'un joueur du jeu. L'e-mail doit être celui de la session vérifiée,
+// jamais une valeur venue du navigateur : le jeu fait confiance à qui détient le secret.
+// Renvoie null si aucun compte du jeu n'utilise cet e-mail. L'e-mail n'est jamais journalisé.
+export async function loadPlayerStats(email: string): Promise<PlayerStats | null> {
+  const baseUrl = process.env.RUNEJACK_API_URL;
+  const secret = process.env.INVITATIONS_SECRET;
+
+  if (!baseUrl || !secret) {
+    throw new RunejackError("La configuration des statistiques des joueurs est incomplète.", 500);
+  }
+
+  const response = await fetch(`${baseUrl}/api/site/joueur`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    cache: "no-store",
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    console.error(`Statistiques du joueur indisponibles (${response.status})`);
+    throw new RunejackError(`Le jeu a répondu avec le statut ${response.status}.`, response.status);
+  }
+
+  return (await response.json()) as PlayerStats;
 }

@@ -1,68 +1,326 @@
-import { META_MIN_RUNS, rankLines } from "@/lib/meta";
-import { callRunejack, loadStats, TARGET_TYPES, type TargetType } from "@/lib/runejack";
+import HeroSheet from "@/components/HeroSheet";
+import {
+  MIN_PLAYER_RUNS,
+  PACT_NAMES,
+  percent,
+  rankHeroes,
+  signedPercent,
+  TIERS,
+  type Compo,
+  type MeasuredMeta,
+  type PlayersMeta,
+} from "@/lib/meta";
+import { loadMeasuredMeta, loadPlayersMeta } from "@/lib/runejack";
 
-const ONE_HOUR = 3600;
+// Les deux méta sont gardées une heure en cache : le jeu reçoit au plus un appel par heure et par route.
+// Chacune peut manquer sans empêcher l'autre de s'afficher.
+async function settle<T>(promise: Promise<T>): Promise<T | null> {
+  try {
+    return await promise;
+  } catch (error) {
+    console.error("Méta indisponible :", error);
+    return null;
+  }
+}
 
-const TITLES: Record<TargetType, string> = {
-  hero: "Héros",
-  contract: "Contrats",
-  rune: "Runes",
-  item: "Objets",
-  blessing: "Bénédictions",
-};
+function CompoLine({ compo }: { compo: Compo }) {
+  return (
+    <li>
+      {compo.famille && <strong>{compo.famille} : </strong>}
+      {compo.heros
+        .map(
+          (h) => `${h.nom} ${h.etoiles}★${h.objets.length ? ` (${h.objets.map((item) => item.nom).join(", ")})` : ""}`
+        )
+        .join(" · ")}
+      {compo.runes.length > 0 && ` · runes : ${compo.runes.map((r) => r.nom).join(", ")}`} ·{" "}
+      {compo.degatsParSalle.toLocaleString("fr-FR")} dégâts par salle · Banco {percent(compo.banco)}
+    </li>
+  );
+}
 
-// Les stats sont mises en cache une heure : le Worker du jeu reçoit au plus un appel par heure et par route
-async function loadMeta() {
-  const [health, ...categories] = await Promise.all([
-    callRunejack<{ version: string; heure: string }>("/api/sante", { revalidate: ONE_HOUR }),
-    ...TARGET_TYPES.map(async (type) => ({ type, ...rankLines(await loadStats(type, ONE_HOUR)) })),
-  ]);
-  return { categories, version: health.version, computedAt: health.heure };
+function PlayersTierList({ measured, players }: { measured: MeasuredMeta; players: PlayersMeta }) {
+  const ranked = rankHeroes(measured, players);
+
+  return (
+    <section>
+      <h2>Tier list</h2>
+      <p>
+        Classement au taux de victoire réel des joueurs : {players.runs} runs de {players.joueurs} joueur(s) depuis la
+        version {players.depuis.version}, {percent(players.tauxVictoire)} de victoires en moyenne. Tant qu&apos;un héros
+        a peu de runs, sa note est complétée par la simulation : un héros joué trois fois ne passe pas S sur un coup de
+        chance.
+      </p>
+      {TIERS.map((tier) => {
+        const heroes = ranked.filter((r) => r.tier === tier);
+        if (heroes.length === 0) return null;
+        return (
+          <div key={tier}>
+            <h3>Tier {tier}</h3>
+            <ul>
+              {heroes.map((r) => (
+                <li key={r.hero.id}>
+                  <a href={`#heros-${r.hero.id}`}>{r.hero.nom}</a> : note {r.score.toLocaleString("fr-FR")} ·{" "}
+                  {r.players && r.players.runs > 0
+                    ? `${percent(r.players.tauxVictoire)} sur ${r.players.runs} runs · présence ${percent(r.players.presence)} · étage moyen ${r.players.etageMoyen ?? "—"}`
+                    : "aucune run"}
+                  {r.lowSample && ` · pas assez de parties (moins de ${MIN_PLAYER_RUNS}), simulation : ${r.simulatedTier}`}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+      <p>Calculé le {new Date(players.calculeLe).toLocaleString("fr-FR")}.</p>
+    </section>
+  );
 }
 
 export default async function MetaPage() {
-  let meta: Awaited<ReturnType<typeof loadMeta>> | null = null;
-  try {
-    meta = await loadMeta();
-  } catch (error) {
-    console.error("Meta indisponible :", error);
+  const [measured, players] = await Promise.all([settle(loadMeasuredMeta()), settle(loadPlayersMeta())]);
+
+  if (!measured) {
+    return (
+      <main>
+        <h1>Méta de Runejack</h1>
+        <p role="alert">Les statistiques du jeu sont momentanément indisponibles. Reviens dans quelques minutes.</p>
+      </main>
+    );
   }
+
+  const heroesById = new Map(measured.heros.map((h) => [h.id, h]));
+  const playerHeroes = new Map((players?.heros ?? []).map((h) => [h.id, h]));
 
   return (
     <main>
-      <h1>Meta de Runejack</h1>
+      <h1>Méta de Runejack</h1>
       <p>
-        Classement par taux de victoire, corrigé par la taille de l&apos;échantillon. Seuls les éléments joués dans au
-        moins {META_MIN_RUNS} runs sont classés.
+        Jeu en version {measured.jeu} · simulation de la version {measured.mesure.version} du{" "}
+        {new Date(measured.mesure.date).toLocaleDateString("fr-FR")}.
+      </p>
+      <p>
+        <a href="#heros">Héros</a> · <a href="#theorique">Tier list mesurée</a> · <a href="#familles">Familles</a> ·{" "}
+        <a href="#compos">Compos</a> · <a href="#objets">Objets</a> · <a href="#runes">Runes</a> ·{" "}
+        <a href="#benedictions">Bénédictions</a> · <a href="#notes">Mises à jour</a>
       </p>
 
-      {!meta && <p>Les statistiques du jeu sont momentanément indisponibles. Reviens dans quelques minutes.</p>}
+      {players ? (
+        <PlayersTierList measured={measured} players={players} />
+      ) : (
+        <p role="alert">Les résultats des joueurs sont momentanément indisponibles : seule la simulation est affichée.</p>
+      )}
 
-      {meta && (
-        <>
-          <p>
-            Version {meta.version} · données du {new Date(meta.computedAt).toLocaleString("fr-FR")}
-          </p>
+      <section id="theorique">
+        <h2>Tier list mesurée par simulation</h2>
+        <p>{measured.methode}</p>
+        {measured.phases.map((phase) => (
+          <div key={phase.id}>
+            <h3>
+              {phase.nom} · {phase.sieges} sièges · {phase.etoiles}★
+            </h3>
+            <ul>
+              {TIERS.filter((tier) => phase.tiers[tier].length > 0).map((tier) => (
+                <li key={tier}>
+                  <strong>{tier}</strong> : {phase.tiers[tier].map((id) => heroesById.get(id)?.nom ?? id).join(", ")}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </section>
 
-          {meta.categories.map(({ type, ranked, lowSample }) => (
-            <section key={type}>
-              <h2>{TITLES[type]}</h2>
-              {ranked.length === 0 && <p>Pas encore assez de runs pour classer cette catégorie.</p>}
-              <ul>
-                {ranked.map((line) => (
-                  <li key={line.id ?? line.name}>
-                    <strong>{line.tier}</strong> {line.name} : {line.winRate.toLocaleString("fr-FR")} % sur{" "}
-                    {line.runs} runs
+      <section id="heros">
+        <h2>Héros</h2>
+        {measured.heros.map((hero) => (
+          <HeroSheet key={hero.id} hero={hero} players={playerHeroes.get(hero.id) ?? null} />
+        ))}
+      </section>
+
+      <section id="familles">
+        <h2>Familles</h2>
+        {measured.familles.map((family) => {
+          const result = players?.familles.find((f) => f.id === family.id);
+          return (
+            <div key={family.id}>
+              <h3>{family.nom}</h3>
+              <ol>
+                {family.paliers.map((text, index) => (
+                  <li key={index} value={index + 2}>
+                    {index + 2} héros : {text}
                   </li>
                 ))}
-              </ul>
-              {lowSample.length > 0 && (
-                <p>Échantillon trop faible : {lowSample.map((line) => line.name).join(", ")}</p>
+              </ol>
+              <p>
+                Banco sans objet ni rune : {family.bancoNu.fin.toLocaleString("fr-FR")} dégâts par salle en fin de run,{" "}
+                {family.bancoNu.fond.toLocaleString("fr-FR")} au Fond.
+              </p>
+              <p>
+                Gain du plateau par nombre de héros :{" "}
+                {Object.entries(family.gainParNombre)
+                  .map(([count, gain]) => `${count} : ${signedPercent(gain)}`)
+                  .join(" · ")}
+              </p>
+              {result && result.runs > 0 && (
+                <p>
+                  Chez les joueurs : {percent(result.tauxVictoire)} de victoires sur {result.runs} runs, {result.banco}{" "}
+                  Banco.
+                </p>
               )}
-            </section>
-          ))}
-        </>
+            </div>
+          );
+        })}
+      </section>
+
+      <section id="compos">
+        <h2>Compos</h2>
+        {measured.compos.map((group) => (
+          <div key={group.phase}>
+            <h3>{measured.phases.find((p) => p.id === group.phase)?.nom ?? group.phase}</h3>
+            <p>Les plus fortes :</p>
+            <ul>
+              {group.meilleures.map((compo, index) => (
+                <CompoLine key={index} compo={compo} />
+              ))}
+            </ul>
+            <p>La meilleure de chaque famille :</p>
+            <ul>
+              {group.parFamille.map((compo, index) => (
+                <CompoLine key={index} compo={compo} />
+              ))}
+            </ul>
+          </div>
+        ))}
+      </section>
+
+      <section id="objets">
+        <h2>Objets</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Objet</th>
+              <th>Genre</th>
+              <th>Effet</th>
+              <th>Gain mesuré</th>
+              <th>Tier</th>
+              <th>Chez les joueurs</th>
+            </tr>
+          </thead>
+          <tbody>
+            {measured.objets
+              .toSorted((a, b) => b.gainMoyen - a.gainMoyen)
+              .map((item) => {
+                const result = players?.objets.find((o) => o.id === item.id);
+                return (
+                  <tr key={item.id}>
+                    <td>{item.nom}</td>
+                    <td>{item.genre}</td>
+                    <td>
+                      {item.stats}
+                      {item.effet && ` · ${item.effet}`}
+                    </td>
+                    <td>{signedPercent(item.gainMoyen)}</td>
+                    <td>{item.tier ?? "—"}</td>
+                    <td>{result && result.runs > 0 ? `${percent(result.tauxVictoire)} sur ${result.runs} runs` : "—"}</td>
+                  </tr>
+                );
+              })}
+          </tbody>
+        </table>
+      </section>
+
+      <section id="runes">
+        <h2>Runes</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Rune</th>
+              <th>Rareté</th>
+              <th>Effet</th>
+              <th>Gain mesuré</th>
+              <th>Tier</th>
+            </tr>
+          </thead>
+          <tbody>
+            {measured.runes
+              .toSorted((a, b) => (b.gain ?? -Infinity) - (a.gain ?? -Infinity))
+              .map((rune) => (
+                <tr key={rune.id}>
+                  <td>{rune.nom}</td>
+                  <td>{rune.rarete}</td>
+                  <td>{rune.effet}</td>
+                  <td>
+                    {signedPercent(rune.gain)}
+                    {rune.orParSalle !== undefined && ` · ${rune.orParSalle} or par salle`}
+                  </td>
+                  <td>{rune.tier ?? "—"}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section id="benedictions">
+        <h2>Bénédictions</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Bénédiction</th>
+              <th>Effet</th>
+              <th>Milieu</th>
+              <th>Fin</th>
+              <th>Fond</th>
+            </tr>
+          </thead>
+          <tbody>
+            {measured.benedictions
+              .toSorted((a, b) => (b.gain.fin ?? -Infinity) - (a.gain.fin ?? -Infinity))
+              .map((blessing) => (
+                <tr key={blessing.id}>
+                  <td>{blessing.nom}</td>
+                  <td>{blessing.effet}</td>
+                  <td>{signedPercent(blessing.gain.milieu)}</td>
+                  <td>{signedPercent(blessing.gain.fin)}</td>
+                  <td>{signedPercent(blessing.gain.fond)}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </section>
+
+      {players && players.pactes.length > 0 && (
+        <section>
+          <h2>Pactes chez les joueurs</h2>
+          <ul>
+            {players.pactes.map((pact) => (
+              <li key={pact.niveau}>
+                {PACT_NAMES[pact.niveau]} : {percent(pact.tauxVictoire)} de victoires sur {pact.runs} runs, étage moyen{" "}
+                {pact.etageMoyen ?? "—"}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
+
+      <section id="notes">
+        <h2>Mises à jour</h2>
+        {measured.notes.map((note) => (
+          <details key={note.version}>
+            <summary>
+              {note.version} · {note.date} · {note.titre}
+            </summary>
+            {note.intro && <p>{note.intro}</p>}
+            {note.sections.map((section) => (
+              <div key={section.titre}>
+                <h3>{section.titre}</h3>
+                <ul>
+                  {section.lignes.map((line, index) => (
+                    <li key={index}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </details>
+        ))}
+      </section>
     </main>
   );
 }
