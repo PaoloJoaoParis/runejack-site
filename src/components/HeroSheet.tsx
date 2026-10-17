@@ -1,3 +1,4 @@
+import HeroPortrait from "@/components/HeroPortrait";
 import { percent, signedPercent, type MeasuredHero, type PhaseId, type PlayerHeroResult } from "@/lib/meta";
 
 const PHASE_LABELS: Record<PhaseId, string> = { debut: "Début", milieu: "Milieu", fin: "Fin", fond: "Fond" };
@@ -8,9 +9,15 @@ const refs = (items: { nom: string }[]) => items.map((item) => item.nom).join(",
 export default function HeroSheet({ hero, players }: { hero: MeasuredHero; players: PlayerHeroResult | null }) {
   return (
     <details id={`heros-${hero.id}`}>
-      <summary>
-        <strong>{hero.nom}</strong> · {hero.rareteNom} · {hero.familles.join(" / ")} · {hero.role}
-        {hero.traitUnique && ` · ${hero.traitUnique}`}
+      <summary className="flex items-center gap-3">
+        <HeroPortrait id={hero.id} name={hero.nom} size={44} />
+        <span>
+          <strong>{hero.nom}</strong>
+          <span className="block text-sm text-[var(--muted)]">
+            {hero.rareteNom} · {hero.familles.join(" / ")} · {hero.role}
+            {hero.traitUnique && ` · ${hero.traitUnique}`}
+          </span>
+        </span>
       </summary>
 
       <h3>Capacité</h3>

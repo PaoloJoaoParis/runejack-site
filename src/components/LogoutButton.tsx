@@ -13,7 +13,7 @@ export default function LogoutButton() {
   }
 
   return (
-    <button onClick={logout} className="text-blue-600 underline">
+    <button onClick={logout} aria-pressed="false" className="m-0! px-3! py-1.5! text-sm">
       Se déconnecter
     </button>
   );

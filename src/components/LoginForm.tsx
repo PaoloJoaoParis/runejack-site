@@ -34,7 +34,7 @@ export default function LoginForm({ invalidLink }: { invalidLink: boolean }) {
 
   if (sent) {
     return (
-      <p className="mt-6 rounded border border-green-300 bg-green-50 p-4 text-green-800">
+      <p className="mt-6 rounded-xl border border-[rgba(126,232,184,0.35)] bg-[rgba(126,232,184,0.08)] p-4 text-[var(--ok)]">
         Un lien de connexion vient d&apos;être envoyé à <strong>{email}</strong>. Ouvre-le dans ce même navigateur.
       </p>
     );
@@ -43,9 +43,7 @@ export default function LoginForm({ invalidLink }: { invalidLink: boolean }) {
   return (
     <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
       <div>
-        <label htmlFor="email" className="block font-medium">
-          Adresse e-mail
-        </label>
+        <label htmlFor="email">Adresse e-mail</label>
         <input
           id="email"
           type="email"
@@ -53,17 +51,12 @@ export default function LoginForm({ invalidLink }: { invalidLink: boolean }) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="toi@exemple.com"
-          className="mt-1 w-full rounded border p-2"
         />
       </div>
-      <button
-        type="submit"
-        disabled={sending || email === ""}
-        className="rounded bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50"
-      >
+      <button type="submit" disabled={sending || email === ""} className="justify-center">
         {sending ? "Envoi en cours…" : "Recevoir un lien de connexion"}
       </button>
-      {error && <p className="rounded border border-red-300 bg-red-50 p-3 text-red-700">{error}</p>}
+      {error && <p role="alert">{error}</p>}
     </form>
   );
 }

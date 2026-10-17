@@ -1,3 +1,4 @@
+import HeroPortrait from "@/components/HeroPortrait";
 import HeroSheet from "@/components/HeroSheet";
 import {
   MIN_PLAYER_RUNS,
@@ -50,27 +51,48 @@ function PlayersTierList({ measured, players }: { measured: MeasuredMeta; player
         a peu de runs, sa note est complétée par la simulation : un héros joué trois fois ne passe pas S sur un coup de
         chance.
       </p>
-      {TIERS.map((tier) => {
-        const heroes = ranked.filter((r) => r.tier === tier);
-        if (heroes.length === 0) return null;
-        return (
-          <div key={tier}>
-            <h3>Tier {tier}</h3>
-            <ul>
-              {heroes.map((r) => (
-                <li key={r.hero.id}>
-                  <a href={`#heros-${r.hero.id}`}>{r.hero.nom}</a> : note {r.score.toLocaleString("fr-FR")} ·{" "}
-                  {r.players && r.players.runs > 0
-                    ? `${percent(r.players.tauxVictoire)} sur ${r.players.runs} runs · présence ${percent(r.players.presence)} · étage moyen ${r.players.etageMoyen ?? "—"}`
-                    : "aucune run"}
-                  {r.lowSample && ` · pas assez de parties (moins de ${MIN_PLAYER_RUNS}), simulation : ${r.simulatedTier}`}
-                </li>
-              ))}
-            </ul>
-          </div>
-        );
-      })}
-      <p>Calculé le {new Date(players.calculeLe).toLocaleString("fr-FR")}.</p>
+      <div className="flex flex-col gap-3">
+        {TIERS.map((tier) => {
+          const heroes = ranked.filter((r) => r.tier === tier);
+          if (heroes.length === 0) return null;
+          return (
+            <div
+              key={tier}
+              className="flex items-start gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 backdrop-blur-xl"
+            >
+              <span className={`tier tier-${tier} h-16! min-w-16! text-4xl!`}>{tier}</span>
+              <ul className="plain m-0 flex flex-1 flex-wrap gap-2">
+                {heroes.map((r) => (
+                  <li key={r.hero.id} className="m-0">
+                    <a
+                      href={`#heros-${r.hero.id}`}
+                      title={
+                        r.players && r.players.runs > 0
+                          ? `${percent(r.players.tauxVictoire)} sur ${r.players.runs} runs · présence ${percent(r.players.presence)} · étage moyen ${r.players.etageMoyen ?? "—"}`
+                          : `Aucune run · simulation : ${r.simulatedTier}`
+                      }
+                      className="group flex items-center gap-2 rounded-xl border border-transparent bg-[rgba(12,6,16,0.55)] py-1 pr-3 pl-1 text-sm text-[var(--foreground)] no-underline transition hover:-translate-y-0.5 hover:border-[var(--border-strong)]"
+                    >
+                      <HeroPortrait id={r.hero.id} name={r.hero.nom} size={36} />
+                      <span>
+                        {r.hero.nom}
+                        <span className="block text-xs text-[var(--muted)]">
+                          note {r.score.toLocaleString("fr-FR")}
+                          {r.lowSample && " · peu de parties"}
+                        </span>
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-sm">
+        « Peu de parties » : moins de {MIN_PLAYER_RUNS} runs, la note s&apos;appuie surtout sur la simulation. Survole un
+        héros pour ses chiffres. Calculé le {new Date(players.calculeLe).toLocaleString("fr-FR")}.
+      </p>
     </section>
   );
 }
@@ -117,10 +139,17 @@ export default async function MetaPage() {
             <h3>
               {phase.nom} · {phase.sieges} sièges · {phase.etoiles}★
             </h3>
-            <ul>
+            <ul className="plain">
               {TIERS.filter((tier) => phase.tiers[tier].length > 0).map((tier) => (
-                <li key={tier}>
-                  <strong>{tier}</strong> : {phase.tiers[tier].map((id) => heroesById.get(id)?.nom ?? id).join(", ")}
+                <li key={tier} className="flex items-center gap-3">
+                  <span className={`tier tier-${tier}`}>{tier}</span>
+                  <span className="flex flex-wrap gap-1.5">
+                    {phase.tiers[tier].map((id) => (
+                      <a key={id} href={`#heros-${id}`} title={heroesById.get(id)?.nom ?? id}>
+                        <HeroPortrait id={id} name={heroesById.get(id)?.nom ?? id} size={34} />
+                      </a>
+                    ))}
+                  </span>
                 </li>
               ))}
             </ul>

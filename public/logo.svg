@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" shape-rendering="crispEdges">
+  <defs>
+    <linearGradient id="or" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff1b0"/>
+      <stop offset="0.55" stop-color="#e0b84a"/>
+      <stop offset="1" stop-color="#8a6516"/>
+    </linearGradient>
+  </defs>
+  <!-- Une carte inclinée -->
+  <g transform="rotate(-8 32 32)">
+    <rect x="13" y="6" width="38" height="52" rx="5" fill="#2a1636" stroke="url(#or)" stroke-width="3"/>
+    <rect x="18" y="11" width="28" height="42" rx="2" fill="none" stroke="#e0b84a" stroke-opacity="0.35" stroke-width="1"/>
+    <!-- La rune : un R taillé au couteau -->
+    <path d="M26 46 V18 H36 L40 22 V28 L36 32 H30 L40 46" fill="none" stroke="url(#or)" stroke-width="4" stroke-linecap="square" stroke-linejoin="miter"/>
+    <path d="M18 16 l2 -3 l2 3 l-2 3 z M46 48 l-2 3 l-2 -3 l2 -3 z" fill="#e0b84a"/>
+  </g>
+</svg>
