@@ -14,8 +14,6 @@ import {
 import { loadMeasuredMeta, loadPlayersMeta, loadPlayerStats } from "@/lib/runejack";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const GAME_URL = "https://play.runejack.com";
-
 async function settle<T>(promise: Promise<T>): Promise<T | null> {
   try {
     return await promise;
@@ -313,8 +311,10 @@ export default async function MyStatsPage() {
       <main>
         <h1>Mes statistiques</h1>
         <p>
-          Tu n&apos;as pas encore de compte dans le jeu avec l&apos;adresse {email}. <a href={GAME_URL}>Ouvre le jeu</a>{" "}
-          pour le créer, ou <Link href="/beta">demande l&apos;accès à la bêta</Link> si tu n&apos;es pas encore invité.
+          Tu n&apos;as pas encore de compte dans le jeu avec l&apos;adresse {email}.{" "}
+          {/* Un simple lien, pas <Link> : /jouer fabrique un jeton de connexion, rien à précharger */}
+          <a href="/jouer">Ouvre le jeu</a> : si tu es invité à la bêta, ton compte s&apos;y crée tout seul. Sinon,{" "}
+          <Link href="/beta">demande l&apos;accès à la bêta</Link>.
         </p>
       </main>
     );

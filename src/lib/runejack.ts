@@ -204,3 +204,34 @@ export async function loadPlayerStats(email: string): Promise<PlayerStats | null
 
   return (await response.json()) as PlayerStats;
 }
+
+// Jeton de connexion au jeu pour le joueur connecté au site : le jeu crée son compte s'il manque.
+// Mêmes règles que loadPlayerStats : e-mail de la session vérifiée seulement, ni e-mail ni jeton journalisés.
+// Renvoie null si le jeu refuse (e-mail pas invité, compte admin, panne) : le joueur arrive
+// alors sur l'écran de connexion du jeu, où il peut aussi jouer sans compte.
+export async function openGameSession(email: string, pseudo: string | null): Promise<string | null> {
+  const baseUrl = process.env.RUNEJACK_API_URL;
+  const secret = process.env.INVITATIONS_SECRET;
+
+  if (!baseUrl || !secret) {
+    console.error("Connexion au jeu impossible : configuration incomplète");
+    return null;
+  }
+
+  const response = await fetch(`${baseUrl}/api/site/connexion`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, pseudo }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    // 403 attendu pour un e-mail pas encore invité : ce n'est pas une panne
+    if (response.status !== 403) console.error(`Connexion au jeu indisponible (${response.status})`);
+    return null;
+  }
+
+  const { jeton } = (await response.json()) as { jeton?: unknown };
+  return typeof jeton === "string" && jeton ? jeton : null;
+}

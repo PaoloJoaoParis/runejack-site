@@ -23,7 +23,7 @@ export default async function BetaPage() {
         <>
           <p>
             Les places sont limitées. Fais ta demande avec l&apos;adresse de ce compte ({user!.email}) : c&apos;est
-            avec elle que tu créeras ton compte dans le jeu.
+            elle qui ouvrira ton compte dans le jeu.
           </p>
           <BetaRequestForm />
         </>
@@ -38,8 +38,10 @@ export default async function BetaPage() {
 
       {betaRequest?.status === "accepted" && (
         <p>
-          Tu es dans la bêta ! Ouvre le jeu et crée ton compte avec {user!.email}.{" "}
-          <a href={process.env.GAME_URL}>Jouer à Runejack</a>
+          Tu es dans la bêta ! Ce bouton ouvre le jeu déjà connecté avec {user!.email}, sans nouvelle
+          inscription.{" "}
+          {/* Un simple lien, pas <Link> : /jouer fabrique un jeton de connexion, rien à précharger */}
+          <a href="/jouer">Jouer à Runejack</a>
         </p>
       )}
 
