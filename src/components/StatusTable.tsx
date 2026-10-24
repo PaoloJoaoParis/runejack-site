@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "motion/react";
+import { HaloBadge } from "@/components/ui/halo-badge";
 import type { CheckResult, Status } from "@/lib/status";
 
 type StatusResponse = {
@@ -21,10 +23,29 @@ const OVERALL_MESSAGE: Record<Status, string> = {
   down: "Au moins un service est en panne.",
 };
 
+const COLORS: Record<Status, string> = {
+  operational: "var(--ok)",
+  degraded: "var(--gold)",
+  down: "var(--danger)",
+};
+
 async function fetchStatus(): Promise<StatusResponse> {
   const response = await fetch("/api/admin/status", { cache: "no-store" });
   if (!response.ok) throw new Error(`Statut ${response.status}`);
   return response.json();
+}
+
+function StatusBadge({ status }: { status: Status }) {
+  return (
+    <HaloBadge
+      live={status !== "operational"}
+      variant={status === "down" ? "destructive" : "outline"}
+      rim={status === "operational" ? "success" : undefined}
+    >
+      <span aria-hidden className="size-1.5 rounded-full" style={{ background: COLORS[status] }} />
+      {LABELS[status]}
+    </HaloBadge>
+  );
 }
 
 export default function StatusTable() {
@@ -51,42 +72,46 @@ export default function StatusTable() {
   }, []);
 
   return (
-    <section>
-      <h1>Administration</h1>
-      <button onClick={refresh} disabled={loading}>
-        {loading ? "Vérification…" : "Relancer les tests"}
-      </button>
+    <section className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="mr-auto text-3xl">Santé des services</h2>
+        {data && <StatusBadge status={data.overall} />}
+        <button onClick={refresh} disabled={loading} className="btn-ghost btn-sm">
+          {loading ? "Vérification…" : "Relancer les tests"}
+        </button>
+      </div>
 
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p role="alert" className="alert m-0">
+          {error}
+        </p>
+      )}
 
       {data && (
         <>
-          <p>{OVERALL_MESSAGE[data.overall]}</p>
-          <table>
-            <thead>
-              <tr>
-                <th>Service</th>
-                <th>Statut</th>
-                <th>Temps de réponse</th>
-                <th>Détail</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.services.map((s) => (
-                <tr key={s.service}>
-                  <td>
-                    {s.service}
-                    <br />
-                    {s.description}
-                  </td>
-                  <td>{LABELS[s.status]}</td>
-                  <td>{s.latencyMs} ms</td>
-                  <td>{s.message}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p>Dernière vérification : {new Date(data.checkedAt).toLocaleString("fr-FR")}</p>
+          <p className="m-0">{OVERALL_MESSAGE[data.overall]}</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {data.services.map((s, index) => (
+              <motion.div
+                key={s.service}
+                className="glass flex flex-col gap-2 p-4"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.04 }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <strong>{s.service}</strong>
+                  <StatusBadge status={s.status} />
+                </div>
+                <span className="text-sm text-[var(--muted-foreground)]">{s.description}</span>
+                <span className="mt-auto flex justify-between gap-2 text-xs text-[var(--muted-foreground)]">
+                  <span className="truncate">{s.message}</span>
+                  <span className="shrink-0 font-mono text-[var(--gold-light)] tabular-nums">{s.latencyMs} ms</span>
+                </span>
+              </motion.div>
+            ))}
+          </div>
+          <p className="m-0 text-xs">Dernière vérification : {new Date(data.checkedAt).toLocaleString("fr-FR")}</p>
         </>
       )}
     </section>

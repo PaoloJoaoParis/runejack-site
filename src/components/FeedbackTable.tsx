@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "motion/react";
+import { AnalysisStatusBadge, CategoryBadge, SeverityBadge, VerdictBadge } from "@/components/FeedbackBadges";
 import {
   CATEGORIES,
   CATEGORY_LABELS,
-  SEVERITY_LABELS,
   TRIAGE_STATUS_LABELS,
   TRIAGE_STATUSES,
   VERDICT_LABELS,
   VERDICTS,
+  type AnalysisStatus,
   type Category,
   type Severity,
   type TriageStatus,
@@ -59,44 +61,90 @@ export default function FeedbackTable({ rows }: { rows: FeedbackRow[] }) {
     .filter((row) => !verdict || row.analysis?.verdict === verdict);
 
   return (
-    <section>
-      <h2>Retours des joueurs</h2>
-      <select value={category} onChange={(e) => setCategory(e.target.value as Category | "")}>
-        <option value="">Toutes les catégories</option>
-        {CATEGORIES.map((c) => (
-          <option key={c} value={c}>
-            {CATEGORY_LABELS[c]}
-          </option>
-        ))}
-      </select>{" "}
-      <select value={verdict} onChange={(e) => setVerdict(e.target.value as Verdict | "")}>
-        <option value="">Tous les verdicts</option>
-        {VERDICTS.map((v) => (
-          <option key={v} value={v}>
-            {VERDICT_LABELS[v]}
-          </option>
-        ))}
-      </select>
+    <section className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="mr-auto text-3xl">Retours des joueurs</h2>
+        <span className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+          <span className="size-2 animate-pulse rounded-full bg-[var(--ok)]" /> Temps réel
+        </span>
+      </div>
 
-      {visibleRows.length === 0 && <p>Aucun retour.</p>}
+      <div className="flex flex-wrap gap-3">
+        <select
+          className="field w-auto!"
+          value={category}
+          onChange={(e) => setCategory(e.target.value as Category | "")}
+          aria-label="Filtrer par catégorie"
+        >
+          <option value="">Toutes les catégories</option>
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {CATEGORY_LABELS[c]}
+            </option>
+          ))}
+        </select>
+        <select
+          className="field w-auto!"
+          value={verdict}
+          onChange={(e) => setVerdict(e.target.value as Verdict | "")}
+          aria-label="Filtrer par verdict"
+        >
+          <option value="">Tous les verdicts</option>
+          {VERDICTS.map((v) => (
+            <option key={v} value={v}>
+              {VERDICT_LABELS[v]}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      <ul>
-        {visibleRows.map((row) => (
-          <li key={row.id}>
-            <Link href={`/retours/${row.id}`}>{row.content}</Link>
-            <br />
-            {row.analysis
-              ? `${CATEGORY_LABELS[row.analysis.category]} · ${SEVERITY_LABELS[row.analysis.severity]} · ${VERDICT_LABELS[row.analysis.verdict]}`
-              : "Analyse en cours"}{" "}
-            <select value={row.triage_status} onChange={(e) => changeStatus(row.id, e.target.value as TriageStatus)}>
-              {TRIAGE_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {TRIAGE_STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
-          </li>
-        ))}
+      {visibleRows.length === 0 && <p className="m-0">Aucun retour.</p>}
+
+      <ul className="flex flex-col gap-3">
+        <AnimatePresence initial={false}>
+          {visibleRows.map((row) => (
+            <motion.li
+              key={row.id}
+              layout
+              className="glass flex flex-col gap-3 p-4 sm:flex-row sm:items-center"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="min-w-0 flex-1">
+                <Link href={`/retours/${row.id}`} className="line-clamp-2 text-[var(--foreground)]">
+                  {row.content}
+                </Link>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-[var(--muted-foreground)]">
+                    {new Date(row.created_at).toLocaleDateString("fr-FR")}
+                  </span>
+                  {row.analysis ? (
+                    <>
+                      <CategoryBadge category={row.analysis.category} />
+                      <SeverityBadge severity={row.analysis.severity} />
+                      <VerdictBadge verdict={row.analysis.verdict} />
+                    </>
+                  ) : (
+                    <AnalysisStatusBadge status={row.analysis_status as AnalysisStatus} />
+                  )}
+                </div>
+              </div>
+              <select
+                className="field w-auto! shrink-0 text-sm"
+                value={row.triage_status}
+                onChange={(e) => changeStatus(row.id, e.target.value as TriageStatus)}
+                aria-label="Statut de suivi"
+              >
+                {TRIAGE_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {TRIAGE_STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </motion.li>
+          ))}
+        </AnimatePresence>
       </ul>
     </section>
   );

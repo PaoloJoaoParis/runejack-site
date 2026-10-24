@@ -1,13 +1,10 @@
 import { redirect } from "next/navigation";
 import LoginForm from "@/components/LoginForm";
 import SpotlightCard from "@/components/SpotlightCard";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/user";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ erreur?: string }> }) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (user) {
     redirect("/");
@@ -17,7 +14,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
   return (
     <main className="max-w-md! pt-16!">
-      <SpotlightCard className="p-8">
+      <SpotlightCard className="fade-up p-8">
+        {/* eslint-disable-next-line @next/next/no-img-element -- logo vectoriel */}
+        <img src="/logo.svg" alt="" width={44} height={44} className="mb-5" />
         <h1>Connexion</h1>
         <p>Saisis ton adresse e-mail : tu recevras un lien pour te connecter, sans mot de passe.</p>
         <LoginForm invalidLink={erreur === "lien-invalide"} />

@@ -1,13 +1,39 @@
 @import "tailwindcss";
 
-/* Palette tirée du jeu : nuit prune, or des cartes, reflets irisés */
+/* Le site est toujours sombre : la variante dark: des composants Cult UI suit la classe .dark posée sur <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+/* Survol réservé aux souris (utilisé par les composants Cult UI) */
+@custom-variant fine-hover {
+  @media (hover: hover) and (pointer: fine) {
+    @slot;
+  }
+}
+
+/* Palette tirée du jeu : nuit prune, or des cartes, reflets irisés.
+   Les noms shadcn (card, muted, primary…) servent aux composants Cult UI. */
 :root {
   --background: #0c0610;
   --foreground: #f3e9f5;
-  --muted: #b3a0bb;
+  --card: #1a0d20;
+  --card-foreground: #f3e9f5;
+  --popover: #1a0d20;
+  --popover-foreground: #f3e9f5;
+  --primary: #e0b84a;
+  --primary-foreground: #2a1805;
+  --secondary: #2a1633;
+  --secondary-foreground: #f3e9f5;
+  --muted: #2a1633;
+  --muted-foreground: #b3a0bb;
+  --accent: #3a2244;
+  --accent-foreground: #ffe48a;
+  --destructive: #ff7a8a;
+  --border: rgba(224, 184, 74, 0.16);
+  --input: rgba(224, 184, 74, 0.22);
+  --ring: #e0b84a;
+  --radius: 1rem;
+
   --surface: rgba(28, 14, 34, 0.62);
   --surface-strong: rgba(40, 20, 48, 0.85);
-  --border: rgba(224, 184, 74, 0.16);
   --border-strong: rgba(224, 184, 74, 0.42);
   --gold: #e0b84a;
   --gold-light: #ffe48a;
@@ -20,9 +46,54 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-iris: var(--iris);
+  --color-ok: var(--ok);
+  --color-danger: var(--danger);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-pixel: var(--font-jersey);
+}
+
+/* Curseur clignotant du terminal Cult UI */
+@theme {
+  --animate-caret-blink: caret-blink 1.1s ease-out infinite;
+
+  @keyframes caret-blink {
+    0%,
+    70%,
+    100% {
+      opacity: 1;
+    }
+    20%,
+    50% {
+      opacity: 0;
+    }
+  }
+}
+
+/* Ombre intérieure utilisée par les onglets Cult UI */
+@utility shadow-inner-shadow {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
 }
 
 html {
@@ -41,8 +112,7 @@ body {
   background: rgba(224, 184, 74, 0.35);
 }
 
-/* Styles de base des éléments HTML, dans la couche "base" de Tailwind :
-   les classes posées sur un élément restent prioritaires. */
+/* Styles de base limités au texte : les composants gardent leur propre apparence */
 @layer base {
   main {
     width: 100%;
@@ -71,26 +141,15 @@ body {
   h2 {
     font-size: 2.1rem;
     color: var(--gold-light);
-    margin: 3rem 0 1rem;
   }
 
   h3 {
     font-weight: 600;
     color: var(--foreground);
-    margin: 1.25rem 0 0.5rem;
-  }
-
-  p,
-  form > div,
-  fieldset,
-  ul,
-  ol,
-  table {
-    margin-bottom: 1rem;
   }
 
   p {
-    color: var(--muted);
+    color: var(--muted-foreground);
     line-height: 1.65;
   }
 
@@ -101,212 +160,16 @@ body {
   a {
     color: var(--gold-light);
     text-decoration: underline;
-    text-decoration-color: rgba(255, 228, 138, 0.35);
+    text-decoration-color: rgba(255, 255, 255, 0);
     text-underline-offset: 3px;
-    transition: color 0.15s, text-decoration-color 0.15s;
+    transition:
+      color 0.15s,
+      text-decoration-color 0.15s;
   }
 
   a:hover {
     color: #fff;
     text-decoration-color: var(--gold);
-  }
-
-  ul {
-    list-style: none;
-    padding-left: 0;
-  }
-
-  ul > li {
-    position: relative;
-    padding-left: 1.1rem;
-    margin-bottom: 0.4rem;
-    color: var(--muted);
-  }
-
-  ul > li::before {
-    content: "◆";
-    position: absolute;
-    left: 0;
-    top: 0.1em;
-    font-size: 0.6em;
-    color: var(--gold);
-  }
-
-  ol {
-    list-style: decimal;
-    padding-left: 1.5rem;
-    color: var(--muted);
-  }
-
-  /* Bouton tactile : il s'enfonce sous le doigt */
-  button {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-weight: 600;
-    color: #2a1805;
-    background: linear-gradient(180deg, var(--gold-light), var(--gold));
-    border-radius: 0.8rem;
-    padding: 0.6rem 1.15rem;
-    margin: 0 0.5rem 0.5rem 0;
-    cursor: pointer;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.65),
-      0 4px 0 var(--gold-dark),
-      0 10px 24px -6px rgba(224, 184, 74, 0.45);
-    transition:
-      transform 0.08s ease,
-      box-shadow 0.08s ease,
-      filter 0.15s;
-  }
-
-  button:hover {
-    filter: brightness(1.07);
-  }
-
-  button:active {
-    transform: translateY(3px);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.5),
-      0 1px 0 var(--gold-dark),
-      0 4px 10px -4px rgba(224, 184, 74, 0.45);
-  }
-
-  button[aria-pressed="false"] {
-    color: var(--foreground);
-    background: linear-gradient(180deg, #3a2244, #24132c);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      0 4px 0 #120812,
-      0 10px 20px -8px rgba(0, 0, 0, 0.6);
-  }
-
-  button:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    transform: none;
-    filter: none;
-  }
-
-  input:not([type="checkbox"]),
-  textarea,
-  select {
-    color: var(--foreground);
-    background: rgba(12, 6, 16, 0.7);
-    border: 1px solid var(--border);
-    border-radius: 0.7rem;
-    padding: 0.65rem 0.8rem;
-    width: 100%;
-    max-width: 42rem;
-    margin-top: 0.35rem;
-    transition:
-      border-color 0.15s,
-      box-shadow 0.15s;
-  }
-
-  input:not([type="checkbox"]):focus,
-  textarea:focus,
-  select:focus {
-    outline: none;
-    border-color: var(--border-strong);
-    box-shadow: 0 0 0 4px rgba(224, 184, 74, 0.12);
-  }
-
-  select option {
-    background: #1a0d1f;
-  }
-
-  input[type="checkbox"] {
-    accent-color: var(--gold);
-    margin-right: 0.5rem;
-  }
-
-  label,
-  fieldset legend {
-    font-weight: 500;
-    color: var(--foreground);
-  }
-
-  fieldset legend {
-    margin-bottom: 0.6rem;
-  }
-
-  /* Cartes en verre */
-  article,
-  details {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 1.1rem;
-    padding: 1.1rem 1.25rem;
-    margin-bottom: 0.9rem;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-  }
-
-  details > summary {
-    cursor: pointer;
-    color: var(--foreground);
-    list-style: none;
-  }
-
-  details > summary::-webkit-details-marker {
-    display: none;
-  }
-
-  details > summary::before {
-    content: "▸";
-    display: inline-block;
-    margin-right: 0.5rem;
-    color: var(--gold);
-    transition: transform 0.2s;
-  }
-
-  details[open] > summary::before {
-    transform: rotate(90deg);
-  }
-
-  details[open] > summary {
-    margin-bottom: 0.75rem;
-  }
-
-  [role="alert"] {
-    color: #ffd0d6;
-    background: rgba(255, 122, 138, 0.1);
-    border: 1px solid rgba(255, 122, 138, 0.35);
-    border-radius: 0.8rem;
-    padding: 0.8rem 1rem;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 1rem;
-    overflow: hidden;
-    font-size: 0.92rem;
-    backdrop-filter: blur(14px);
-  }
-
-  th {
-    text-align: left;
-    font-weight: 600;
-    color: var(--gold-light);
-    background: rgba(224, 184, 74, 0.06);
-  }
-
-  th,
-  td {
-    border-bottom: 1px solid rgba(224, 184, 74, 0.08);
-    padding: 0.65rem 0.8rem;
-    vertical-align: top;
-    color: var(--muted);
-  }
-
-  tbody tr:hover td {
-    background: rgba(224, 184, 74, 0.04);
   }
 
   section {
@@ -316,16 +179,19 @@ body {
 
 /* ---------- Classes réutilisables ---------- */
 
-/* Lien présenté comme un bouton tactile */
+/* Bouton tactile doré (lien ou <button>) : il s'enfonce sous le doigt */
 .btn,
 .btn-ghost {
+  position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.45rem;
   font-weight: 600;
   text-decoration: none;
   border-radius: 0.9rem;
   padding: 0.8rem 1.35rem;
+  cursor: pointer;
   transition:
     transform 0.08s ease,
     box-shadow 0.08s ease,
@@ -352,12 +218,16 @@ body {
 
 .btn:hover,
 .btn-ghost:hover {
-  color: inherit;
   filter: brightness(1.08);
+  text-decoration: none;
 }
 
 .btn:hover {
   color: #2a1805;
+}
+
+.btn-ghost:hover {
+  color: var(--foreground);
 }
 
 .btn:active,
@@ -366,6 +236,184 @@ body {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.4),
     0 1px 0 #120812;
+}
+
+.btn:disabled,
+.btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
+}
+
+.btn-sm {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.875rem;
+  border-radius: 0.7rem;
+}
+
+/* Champ de formulaire en verre */
+.field {
+  display: block;
+  width: 100%;
+  color: var(--foreground);
+  background: rgba(12, 6, 16, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  padding: 0.7rem 0.9rem;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.field::placeholder {
+  color: rgba(179, 160, 187, 0.6);
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 4px rgba(224, 184, 74, 0.12);
+}
+
+select.field option {
+  background: #1a0d1f;
+}
+
+.label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+/* Petit titre au-dessus d'une section */
+.eyebrow {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--iris);
+}
+
+/* Carte en verre */
+.glass {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1.4rem;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Liste à puces en losange doré */
+.rune-list > li {
+  position: relative;
+  padding-left: 1.1rem;
+  margin-bottom: 0.45rem;
+  color: var(--muted-foreground);
+}
+
+.rune-list > li::before {
+  content: "◆";
+  position: absolute;
+  left: 0;
+  top: 0.15em;
+  font-size: 0.6em;
+  color: var(--gold);
+}
+
+/* Message d'erreur */
+.alert {
+  color: #ffd0d6;
+  background: rgba(255, 122, 138, 0.1);
+  border: 1px solid rgba(255, 122, 138, 0.35);
+  border-radius: 0.9rem;
+  padding: 0.8rem 1rem;
+}
+
+/* Message de réussite */
+.notice {
+  color: var(--ok);
+  background: rgba(126, 232, 184, 0.08);
+  border: 1px solid rgba(126, 232, 184, 0.35);
+  border-radius: 0.9rem;
+  padding: 0.8rem 1rem;
+}
+
+/* Tableau en verre */
+.table-rune {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.92rem;
+}
+
+.table-rune th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--gold-light);
+  background: rgba(224, 184, 74, 0.06);
+}
+
+.table-rune th,
+.table-rune td {
+  border-bottom: 1px solid rgba(224, 184, 74, 0.08);
+  padding: 0.7rem 0.9rem;
+  vertical-align: middle;
+  color: var(--muted-foreground);
+}
+
+.table-rune tbody tr {
+  transition: background 0.15s;
+}
+
+.table-rune tbody tr:hover td {
+  background: rgba(224, 184, 74, 0.04);
+}
+
+/* Bloc repliable en verre */
+.fold {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  padding: 0.9rem 1.2rem;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: border-color 0.2s;
+}
+
+.fold:hover,
+.fold[open] {
+  border-color: var(--border-strong);
+}
+
+.fold > summary {
+  cursor: pointer;
+  color: var(--foreground);
+  list-style: none;
+}
+
+.fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fold > summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 0.6rem;
+  color: var(--gold);
+  transition: transform 0.2s;
+}
+
+.fold[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.fold[open] > summary {
+  margin-bottom: 0.75rem;
 }
 
 /* Texte doré qui scintille */
@@ -387,6 +435,14 @@ body {
   }
 }
 
+/* Texte irisé (or vers violet) */
+.iris-text {
+  background: linear-gradient(100deg, var(--gold-light), var(--iris) 60%, #f3c4ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 /* Carte en verre avec halo qui suit la souris (variables --x et --y posées par SpotlightCard) */
 .spotlight {
   position: relative;
@@ -396,7 +452,9 @@ body {
   border-radius: 1.4rem;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  transition: border-color 0.2s;
+  transition:
+    border-color 0.2s,
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .spotlight::before {
@@ -426,11 +484,12 @@ body {
 .tier {
   display: inline-grid;
   place-items: center;
-  min-width: 2.6rem;
-  height: 2.6rem;
-  border-radius: 0.7rem;
+  min-width: 2.2rem;
+  height: 2.2rem;
+  padding: 0 0.4rem;
+  border-radius: 0.6rem;
   font-family: var(--font-jersey), monospace;
-  font-size: 1.8rem;
+  font-size: 1.5rem;
   line-height: 1;
 }
 
@@ -460,15 +519,6 @@ body {
   background: linear-gradient(180deg, #6d5876, #3a2a40);
 }
 
-/* Les puces de liste ne s'appliquent pas aux listes de cartes */
-.plain > li {
-  padding-left: 0;
-}
-
-.plain > li::before {
-  content: none;
-}
-
 /* Apparition en fondu, sans JavaScript */
 .fade-up {
   animation: fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -482,10 +532,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fade-up {
-    animation: none;
-  }
-
+  .fade-up,
   .shimmer {
     animation: none;
   }

@@ -12,23 +12,21 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return Response.json({ error: "Authentification requise." }, { status: 401 });
   }
 
-  const { data: feedback } = await supabase
-    .from("feedback")
-    .select("id, analysis_status, error_message")
-    .eq("id", id)
-    .maybeSingle();
+  // Les deux lectures partent en même temps ; l'analyse n'est renvoyée que si la RLS laisse voir le retour
+  const [{ data: feedback }, { data: analysis }] = await Promise.all([
+    supabase.from("feedback").select("id, analysis_status, error_message").eq("id", id).maybeSingle(),
+    supabase
+      .from("analyses")
+      .select("*")
+      .eq("feedback_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   if (!feedback) {
     return Response.json({ error: "Retour introuvable." }, { status: 404 });
   }
-
-  const { data: analysis } = await supabase
-    .from("analyses")
-    .select("*")
-    .eq("feedback_id", id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
 
   return Response.json({ ...feedback, analysis });
 }

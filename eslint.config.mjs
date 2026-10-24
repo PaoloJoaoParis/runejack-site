@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Composants Cult UI copiés tels quels depuis leur registre
+    "src/components/ui/**",
   ]),
 ]);
 

@@ -39,33 +39,52 @@ export default function BetaRequestForm() {
   }
 
   return (
-    <form onSubmit={submit}>
+    <form onSubmit={submit} className="flex flex-col gap-6">
       <div>
-        <label htmlFor="username">Pseudo souhaité dans le jeu</label>
-        <br />
-        <input id="username" value={username} onChange={(e) => setUsername(e.target.value)} maxLength={20} />
+        <label htmlFor="username" className="label">
+          Pseudo souhaité dans le jeu
+        </label>
+        <input
+          id="username"
+          className="field"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          maxLength={20}
+          placeholder="Entre 2 et 20 caractères"
+        />
       </div>
       <div>
-        <label htmlFor="motivation">Pourquoi veux-tu tester Runejack ? (facultatif)</label>
-        <br />
+        <label htmlFor="motivation" className="label">
+          Pourquoi veux-tu tester Runejack ?{" "}
+          <span className="font-normal text-[var(--muted-foreground)]">(facultatif)</span>
+        </label>
         <textarea
           id="motivation"
+          className="field resize-y"
           value={motivation}
           onChange={(e) => setMotivation(e.target.value)}
           maxLength={500}
           rows={5}
-          cols={60}
         />
+        <span className="mt-1 block text-right text-xs text-[var(--muted-foreground)]">{motivation.length} / 500</span>
       </div>
-      <label>
-        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+      <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--muted-foreground)]">
+        <input
+          type="checkbox"
+          className="mt-0.5 size-4 shrink-0 accent-[var(--gold)]"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+        />
         J&apos;accepte que mon adresse e-mail serve à m&apos;inviter dans la bêta et à me contacter à son sujet.
       </label>
-      <br />
-      <button type="submit" disabled={!isValid || sending}>
+      <button type="submit" className="btn w-fit" disabled={!isValid || sending}>
         {sending ? "Envoi…" : "Demander l'accès"}
       </button>
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p role="alert" className="alert m-0">
+          {error}
+        </p>
+      )}
     </form>
   );
 }
