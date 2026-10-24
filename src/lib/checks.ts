@@ -1,4 +1,5 @@
 import "server-only";
+import { EMBEDDING_DIMENSIONS, embeddingModel, embedText } from "@/lib/embeddings";
 import { qstash } from "@/lib/qstash";
 import { redis } from "@/lib/rate-limit";
 import { callRunejack } from "@/lib/runejack";
@@ -187,9 +188,25 @@ const invitationsCheck: Check = {
   },
 };
 
+const embeddingsCheck: Check = {
+  service: "Embeddings (Gemini)",
+  description: "Détection des retours en double (pgvector)",
+  run: async () => {
+    // Un vrai calcul d'embedding, puis le nombre de retours déjà indexés en base
+    const vector = await embedText("Contrôle du service d'embeddings");
+    const { count, error } = await createSupabaseAdminClient()
+      .from("feedback")
+      .select("id", { count: "exact", head: true })
+      .not("embedding", "is", null);
+    if (error) throw new Error(`Colonne embedding absente : exécuter supabase/schema.sql (${error.message})`);
+    return `${embeddingModel()} · ${vector.length}/${EMBEDDING_DIMENSIONS} dimensions · ${count ?? 0} retour(s) indexé(s)`;
+  },
+};
+
 export const CHECKS: Check[] = [
   vercelCheck,
   aiCheck,
+  embeddingsCheck,
   databaseCheck,
   authCheck,
   storageCheck,

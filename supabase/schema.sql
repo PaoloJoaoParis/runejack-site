@@ -7,9 +7,9 @@ returns boolean
 language sql
 stable
 set search_path = ''
-as $
+as $$
   select coalesce((select auth.jwt()) -> 'app_metadata' ->> 'role', '') = 'admin'
-$;
+$$;
 
 -- 2. Retours envoyés par les joueurs
 create table if not exists public.feedback (
@@ -161,7 +161,7 @@ create policy "Lire ses captures, ou toutes pour un admin"
   );
 
 -- 7. Temps réel sur les retours et les analyses (Realtime respecte la RLS)
-do $
+do $$
 begin
   if not exists (select 1 from pg_publication_tables
                  where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'feedback') then
@@ -171,9 +171,44 @@ begin
                  where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'analyses') then
     alter publication supabase_realtime add table public.analyses;
   end if;
-end $;
+end $$;
 
--- 8. Devenir admin : à exécuter une fois avec votre adresse, puis se reconnecter
+-- 8. Détection des doublons : chaque retour reçoit un embedding (vecteur de 768 nombres qui résume son sens),
+-- calculé par le worker d'analyse. Deux retours qui décrivent le même problème ont des vecteurs proches.
+create extension if not exists vector with schema extensions;
+
+alter table public.feedback add column if not exists embedding extensions.vector(768);
+
+-- Index HNSW : recherche rapide des plus proches voisins à la distance cosinus
+create index if not exists feedback_embedding_idx on public.feedback
+  using hnsw (embedding extensions.vector_cosine_ops);
+
+-- Retours qui ressemblent à un retour donné, du plus proche au moins proche.
+-- security invoker : la RLS s'applique, un joueur ne compare qu'avec ses retours, un admin avec tous.
+create or replace function public.similar_feedback(
+  target_id uuid,
+  min_similarity float default 0.8,
+  max_results int default 5
+)
+returns table (id uuid, content text, created_at timestamptz, triage_status text, similarity float)
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select f.id, f.content, f.created_at, f.triage_status,
+         1 - (f.embedding operator(extensions.<=>) t.embedding) as similarity
+  from public.feedback f
+  join public.feedback t on t.id = target_id
+  where f.id <> t.id
+    and f.embedding is not null
+    and t.embedding is not null
+    and 1 - (f.embedding operator(extensions.<=>) t.embedding) >= min_similarity
+  order by f.embedding operator(extensions.<=>) t.embedding
+  limit max_results;
+$$;
+
+-- 9. Devenir admin : à exécuter une fois avec votre adresse, puis se reconnecter
 -- update auth.users
 --   set raw_app_meta_data = raw_app_meta_data || '{"role": "admin"}'::jsonb
 --   where email = 'vous@exemple.com';

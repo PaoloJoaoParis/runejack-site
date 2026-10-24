@@ -39,11 +39,12 @@ function ThinkingText({ type }: { type: DeclaredType }) {
   }, [steps.length]);
 
   return (
-    <div className="relative h-7 overflow-hidden">
+    // Hauteur libre : sur un écran étroit, une étape longue passe sur deux lignes au lieu d'être coupée
+    <div className="relative min-h-7">
       <AnimatePresence mode="wait">
         <motion.span
           key={index}
-          className="shimmer absolute inset-0 text-lg font-medium"
+          className="shimmer block text-lg font-medium"
           initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           exit={{ opacity: 0, y: -12, filter: "blur(6px)" }}
@@ -109,7 +110,7 @@ export default function AiConversation({
 
       {/* La réponse de l'IA : l'orbe, ce qu'elle fait, puis le résultat */}
       <motion.div
-        className="glass flex flex-col gap-5 p-6"
+        className="glass flex flex-col gap-5 overflow-hidden p-6"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}

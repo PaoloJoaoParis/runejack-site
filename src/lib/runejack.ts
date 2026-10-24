@@ -1,5 +1,6 @@
 import "server-only";
 import type { MeasuredMeta, PlayersMeta, PlayerStats } from "@/lib/meta";
+import { redis } from "@/lib/rate-limit";
 
 export class RunejackError extends Error {
   status: number;
@@ -79,6 +80,17 @@ export async function loadCatalog(): Promise<Catalog> {
   );
 
   return Object.fromEntries(parts) as Catalog;
+}
+
+// Dernière version publiée du jeu, jointe automatiquement à chaque retour.
+// Gardée 5 minutes en cache ; null si l'API ne répond pas : le retour est enregistré quand même.
+export async function loadGameVersion(): Promise<string | null> {
+  try {
+    const health = await callRunejack<{ version: string }>("/api/sante", { revalidate: 300 });
+    return health.version || null;
+  } catch {
+    return null;
+  }
 }
 
 const toStatLine = (line: RawStatLine): StatLine => ({
@@ -203,6 +215,41 @@ export async function loadPlayerStats(email: string): Promise<PlayerStats | null
   }
 
   return (await response.json()) as PlayerStats;
+}
+
+// Stats d'un joueur gardées une minute dans Redis : la page « Mes statistiques » ne rappelle pas le jeu
+// à chaque visite (environ 500 ms). La clé est une empreinte SHA-256 de l'e-mail : l'adresse n'est jamais stockée.
+// Redis en panne : on interroge simplement le jeu, la page ne casse pas.
+const PLAYER_STATS_TTL_S = 60;
+
+async function playerStatsKey(email: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(email.toLowerCase()));
+  const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `runejack:stats:${hex}`;
+}
+
+export async function loadPlayerStatsCached(email: string): Promise<PlayerStats | null> {
+  const key = await playerStatsKey(email);
+
+  try {
+    const cached = await redis.get<PlayerStats>(key);
+    if (cached) return cached;
+  } catch (error) {
+    console.error("Cache des statistiques indisponible :", error);
+  }
+
+  const stats = await loadPlayerStats(email);
+
+  // Seules les stats trouvées sont gardées : un joueur qui vient de créer son compte le voit tout de suite
+  if (stats) {
+    try {
+      await redis.set(key, stats, { ex: PLAYER_STATS_TTL_S });
+    } catch (error) {
+      console.error("Cache des statistiques indisponible :", error);
+    }
+  }
+
+  return stats;
 }
 
 // Jeton de connexion au jeu pour le joueur connecté au site : le jeu crée son compte s'il manque.

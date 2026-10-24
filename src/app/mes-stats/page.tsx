@@ -16,7 +16,7 @@ import {
   type PlayerStats,
   type RankedHero,
 } from "@/lib/meta";
-import { loadMeasuredMeta, loadPlayersMeta, loadPlayerStats } from "@/lib/runejack";
+import { loadMeasuredMeta, loadPlayersMeta, loadPlayerStatsCached } from "@/lib/runejack";
 import { getCurrentUser } from "@/lib/supabase/user";
 
 async function settle<T>(promise: Promise<T>): Promise<T | null> {
@@ -377,7 +377,7 @@ export default async function MyStatsPage() {
 
   let player: PlayerStats | null;
   try {
-    player = await loadPlayerStats(email);
+    player = await loadPlayerStatsCached(email);
   } catch {
     return <Message alert>Statistiques indisponibles pour le moment. Réessaie dans quelques minutes.</Message>;
   }

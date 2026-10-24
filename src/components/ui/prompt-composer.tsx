@@ -19,11 +19,12 @@ import {
   type ChangeEvent,
   type ComponentProps,
   type KeyboardEvent,
+  type ReactNode,
   type TextareaHTMLAttributes,
 } from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { Warp, type WarpProps } from "@paper-design/shaders-react"
-import { Paperclip, Send } from "lucide-react"
+import { Plus, Send } from "lucide-react"
 import {
   AnimatePresence,
   motion,
@@ -336,13 +337,14 @@ function AnimatedPlaceholder({
   className?: string
   alignTop?: boolean
 }) {
-  const chars = useMemo(() => {
-    const counts = new Map<string, number>()
-    return Array.from(text, (char) => {
-      const count = counts.get(char) ?? 0
-      counts.set(char, count + 1)
-      return { char, key: `${char}-${count}` }
-    })
+  // Lettres regroupées par mot (espace compris) : le retour à la ligne ne coupe plus un mot
+  // ni ne rejette une virgule en début de ligne
+  const words = useMemo(() => {
+    let index = 0
+    return (text.match(/\S+\s*|\s+/g) ?? []).map((word, wordIndex) => ({
+      key: `${word}-${wordIndex}`,
+      chars: Array.from(word, (char) => ({ char, key: index++ })),
+    }))
   }, [text])
 
   return (
@@ -366,21 +368,25 @@ function AnimatedPlaceholder({
         },
       }}
     >
-      {chars.map((glyph) => (
-        <motion.span
-          className="inline-block whitespace-pre-wrap"
-          key={glyph.key}
-          transition={{
-            duration: reduceMotion ? 0 : charDurationSec,
-            ease: "easeOut",
-          }}
-          variants={{
-            hidden: { opacity: reduceMotion ? 1 : 0 },
-            visible: { opacity: 1 },
-          }}
-        >
-          {glyph.char}
-        </motion.span>
+      {words.map((word) => (
+        <span className="inline-block whitespace-pre" key={word.key}>
+          {word.chars.map((glyph) => (
+            <motion.span
+              className="inline-block whitespace-pre"
+              key={glyph.key}
+              transition={{
+                duration: reduceMotion ? 0 : charDurationSec,
+                ease: "easeOut",
+              }}
+              variants={{
+                hidden: { opacity: reduceMotion ? 1 : 0 },
+                visible: { opacity: 1 },
+              }}
+            >
+              {glyph.char}
+            </motion.span>
+          ))}
+        </span>
       ))}
     </motion.span>
   )
@@ -531,6 +537,10 @@ export interface PromptComposerProps
   /** When set, an attach control is shown (unless `showAttach` is false). */
   onAttach?: () => void
   showAttach?: boolean
+  /** Libellé du bouton « + » pour les lecteurs d'écran */
+  attachLabel?: string
+  /** Pièce jointe affichée à côté du bouton « + » (aperçu, nom du fichier…) */
+  attachment?: ReactNode
   /** Grow height with content up to `maxAutoGrowPx`. */
   autoGrow?: boolean
   maxAutoGrowPx?: number
@@ -557,6 +567,8 @@ export const PromptComposer = forwardRef<
       onSend,
       onAttach,
       showAttach,
+      attachLabel = "Joindre un fichier",
+      attachment,
       autoGrow = true,
       maxAutoGrowPx = 280,
       onKeyDown,
@@ -767,7 +779,7 @@ export const PromptComposer = forwardRef<
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-border/50 border-t pt-2">
+            <div className="flex items-center gap-2 border-border/50 border-t pt-2">
               {showAttachControl ? (
                 <ButtonPrimitive
                   className={cn(
@@ -783,10 +795,12 @@ export const PromptComposer = forwardRef<
                   onClick={onAttach}
                   type="button"
                 >
-                  <Paperclip aria-hidden className="size-4 shrink-0" />
-                  <span className="sr-only">Joindre un fichier</span>
+                  <Plus aria-hidden className="size-5 shrink-0" />
+                  <span className="sr-only">{attachLabel}</span>
                 </ButtonPrimitive>
               ) : null}
+
+              <div className="min-w-0 flex-1">{attachment}</div>
 
               <div className="relative size-10 shrink-0">
                 <AnimatePresence initial={false} mode="popLayout">

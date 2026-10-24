@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import AiConversation, { type ConversationPhase, type SubmittedFeedback } from "@/components/AiConversation";
 import AiOrb from "@/components/AiOrb";
-import { HaloDropzone } from "@/components/ui/halo-dropzone";
+import ScreenshotChip from "@/components/ScreenshotChip";
 import { HaloSegmented } from "@/components/ui/halo-segmented";
 import { PromptComposer } from "@/components/ui/prompt-composer";
 import {
@@ -126,9 +126,10 @@ export default function FeedbackForm() {
   const formRef = useRef<HTMLFormElement>(null);
   const [type, setType] = useState<DeclaredType | null>(null);
   const [content, setContent] = useState("");
-  const [version, setVersion] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [remaining, setRemaining] = useState<number | null>(null);
   const [typing, setTyping] = useState(false);
@@ -172,7 +173,7 @@ export default function FeedbackForm() {
       const response = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, content, version, screenshotPath }),
+        body: JSON.stringify({ type, content, screenshotPath }),
       });
       const data = await response.json();
 
@@ -192,7 +193,6 @@ export default function FeedbackForm() {
       saved = true;
       setType(null);
       setContent("");
-      setVersion("");
       setFile(null);
       setFileInputKey((key) => key + 1);
       setFeedbackId(data.id);
@@ -218,6 +218,23 @@ export default function FeedbackForm() {
     setFeedbackId(null);
     setAnalysis(null);
     setError("");
+  }
+
+  // Une image collée (Ctrl + V) dans le champ devient la capture jointe, comme dans ChatGPT
+  function onPaste(event: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const image = Array.from(event.clipboardData.files).find((f) => f.type.startsWith("image/"));
+    if (image) {
+      event.preventDefault();
+      setFile(image);
+    }
+  }
+
+  // Glisser une image sur le champ la joint aussi
+  function onDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragging(false);
+    const image = Array.from(event.dataTransfer.files).find((f) => f.type.startsWith("image/"));
+    if (image) setFile(image);
   }
 
   // Ce qui manque encore pour pouvoir envoyer
@@ -279,60 +296,65 @@ export default function FeedbackForm() {
               <label htmlFor="content" className="label">
                 Ton retour
               </label>
-              <PromptComposer
-                id="content"
-                aria-label="Ton retour"
-                className="max-w-none"
-                value={content}
-                onChange={(e) => {
-                  setContent(e.target.value);
-                  setTyping(true);
+              {/* Champ de saisie façon ChatGPT : « + » pour joindre une capture, glisser-déposer ou coller une image */}
+              <div
+                className={`relative rounded-2xl transition-shadow ${dragging ? "ring-2 ring-[var(--gold)] ring-offset-4 ring-offset-transparent" : ""}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragging(true);
                 }}
-                placeholder="Décris ce qui s'est passé, ce que tu attendais, et ce que tu en penses…"
-                isLoading={loading}
-                loadingText="Envoi…"
-                onSend={() => formRef.current?.requestSubmit()}
-                rows={6}
-                maxAutoGrowPx={360}
-              />
-              <p className="mt-2 mb-0 flex justify-between text-sm">
-                <span>Ctrl + Entrée pour envoyer</span>
-                <span className={isContentValid || length === 0 ? "" : "text-[var(--danger)]"}>
+                onDragLeave={() => setDragging(false)}
+                onDrop={onDrop}
+              >
+                <PromptComposer
+                  id="content"
+                  aria-label="Ton retour"
+                  className="max-w-none"
+                  value={content}
+                  onChange={(e) => {
+                    setContent(e.target.value);
+                    setTyping(true);
+                  }}
+                  onPaste={onPaste}
+                  placeholder="Décris ce qui s'est passé, ce que tu attendais, et ce que tu en penses…"
+                  isLoading={loading}
+                  loadingText="Envoi…"
+                  onSend={() => formRef.current?.requestSubmit()}
+                  onAttach={() => fileInputRef.current?.click()}
+                  attachLabel="Joindre une capture d'écran"
+                  attachment={
+                    file ? (
+                      <ScreenshotChip file={file} valid={isFileValid} onRemove={() => setFile(null)} />
+                    ) : (
+                      <span className="hidden text-xs text-[var(--muted-foreground)] sm:inline">
+                        Capture facultative · PNG, JPEG ou WebP, 2 Mo max
+                      </span>
+                    )
+                  }
+                  rows={6}
+                  maxAutoGrowPx={360}
+                />
+                {dragging && (
+                  <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center rounded-2xl bg-[rgba(12,6,16,0.75)] font-medium text-[var(--gold-light)]">
+                    Dépose ta capture ici
+                  </div>
+                )}
+                <input
+                  key={fileInputKey}
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  tabIndex={-1}
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
+              </div>
+              <p className="mt-2 mb-0 flex justify-between gap-4 text-sm">
+                <span>Ctrl + Entrée pour envoyer · la version du jeu est ajoutée automatiquement</span>
+                <span className={`shrink-0 ${isContentValid || length === 0 ? "" : "text-[var(--danger)]"}`}>
                   {length} / {LIMITS.contentMax}
                 </span>
               </p>
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-[1fr_1.4fr]">
-              <div>
-                <label htmlFor="version" className="label">
-                  Version du jeu <span className="font-normal text-[var(--muted-foreground)]">(facultatif)</span>
-                </label>
-                <input
-                  id="version"
-                  className="field"
-                  value={version}
-                  onChange={(e) => setVersion(e.target.value)}
-                  maxLength={LIMITS.versionMax}
-                  placeholder="0.76"
-                />
-              </div>
-
-              <div>
-                <span className="label">
-                  Capture d&apos;écran <span className="font-normal text-[var(--muted-foreground)]">(facultatif)</span>
-                </span>
-                <HaloDropzone
-                  key={fileInputKey}
-                  accept="image/png,image/jpeg,image/webp"
-                  onFiles={(files) => setFile(files[0] ?? null)}
-                  disabled={loading}
-                  successResetMs={0}
-                  emptyLabel="Dépose ta capture ou parcours"
-                  successLabel={isFileValid ? "Capture prête" : "Ce fichier ne convient pas"}
-                  formatHint="PNG, JPEG ou WebP, 2 Mo maximum"
-                />
-              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-4">

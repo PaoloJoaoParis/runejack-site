@@ -150,7 +150,7 @@ export function HaloSegmented({
 
       <div
         className={cn(
-          "relative rounded-full border border-border/90",
+          "relative w-full min-w-0 rounded-full border border-border/90",
           "shadow-[0_1px_0_rgba(255,255,255,0.1)_inset,0_1px_2px_rgba(0,0,0,0.04),0_4px_14px_rgba(0,0,0,0.05)]",
           "dark:border-border dark:shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_1px_2px_rgba(0,0,0,0.35),0_4px_20px_rgba(0,0,0,0.35)]",
           translucent && "backdrop-blur-xl backdrop-saturate-150"
@@ -161,9 +161,11 @@ export function HaloSegmented({
             : "linear-gradient(to bottom, var(--card) 0%, color-mix(in oklch, var(--card) 94%, var(--muted)) 100%)",
         }}
       >
-        <div className="relative p-1" ref={trackRef}>
+        <div className="relative w-full p-1" ref={trackRef}>
           <motion.div
             animate={{
+              // Curseur invisible tant que rien n'est choisi (sinon il reste un trait à gauche)
+              opacity: thumb.width > 0 ? 1 : 0,
               x: thumb.width > 0 ? thumb.x : 0,
               width: thumb.width,
             }}
@@ -181,7 +183,7 @@ export function HaloSegmented({
           />
 
           <ToggleGroup
-            className="relative z-1 flex min-w-0 gap-0"
+            className="relative z-1 flex w-full min-w-0 gap-0"
             disabled={disabled}
             multiple={false}
             onValueChange={(next) => {
@@ -195,7 +197,7 @@ export function HaloSegmented({
             {items.map((item) => (
               <Toggle
                 className={cn(
-                  "relative flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-full px-4 py-2",
+                  "relative flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-full px-2.5 py-2 sm:px-4",
                   "font-medium text-muted-foreground text-sm tracking-tight antialiased",
                   "outline-none transition-colors duration-200 ease-out",
                   "focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background",

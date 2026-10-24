@@ -1,6 +1,7 @@
 import { DECLARED_TYPES, LIMITS, type DeclaredType } from "@/lib/feedback";
 import { publishAnalysis } from "@/lib/qstash";
 import { feedbackLimiter } from "@/lib/rate-limit";
+import { loadGameVersion } from "@/lib/runejack";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -25,7 +26,6 @@ export async function POST(request: Request) {
 
   const type = body.type;
   const content = typeof body.content === "string" ? body.content.trim() : "";
-  const version = typeof body.version === "string" ? body.version.trim() : "";
   const screenshotPath = typeof body.screenshotPath === "string" ? body.screenshotPath : null;
 
   if (!(DECLARED_TYPES as readonly string[]).includes(type)) {
@@ -41,16 +41,16 @@ export async function POST(request: Request) {
     );
   }
 
-  if (version.length > LIMITS.versionMax) {
-    return Response.json({ error: "La version du jeu est trop longue." }, { status: 400 });
-  }
-
   if (
     screenshotPath !== null &&
     (!screenshotPath.startsWith(`${user.id}/`) || !SCREENSHOT_EXTENSIONS.some((ext) => screenshotPath.endsWith(ext)))
   ) {
     return Response.json({ error: "Capture invalide." }, { status: 400 });
   }
+
+  // La version du jeu n'est plus demandée au joueur : c'est la dernière publiée.
+  // Demandée dès maintenant, en parallèle du quota.
+  const versionPromise = loadGameVersion();
 
   // 2. Quota : 5 retours par heure et par joueur.
   // Si Redis est en panne, on refuse (fail closed) : le site est public et le quota gratuit
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     .insert({
       declared_type: type as DeclaredType,
       content,
-      game_version: version || null,
+      game_version: await versionPromise,
       screenshot_path: screenshotPath,
     })
     .select("id, analysis_status")

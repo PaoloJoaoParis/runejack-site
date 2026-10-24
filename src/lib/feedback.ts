@@ -62,7 +62,6 @@ export type Analysis = Omit<Triage, "claim"> & {
 export const LIMITS = {
   contentMin: 30,
   contentMax: 3000,
-  versionMax: 20,
   summaryMax: 300,
   replyMax: 600,
   stepsMax: 8,

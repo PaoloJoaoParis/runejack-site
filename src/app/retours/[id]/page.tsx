@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import AnalysisCard from "@/components/AnalysisCard";
+import SimilarFeedback, { type SimilarRow } from "@/components/SimilarFeedback";
 import { TriageBadge } from "@/components/FeedbackBadges";
 import { AiBlobWarpAvatar } from "@/components/ui/ai-blob-warp";
 import { isAdmin } from "@/lib/admin";
@@ -13,10 +14,10 @@ export default async function FeedbackDetailPage({ params }: { params: Promise<{
 
   const supabase = await createSupabaseServerClient();
 
-  // Les trois lectures partent en même temps : un seul aller-retour vers Supabase au lieu de trois.
+  // Les lectures partent en même temps : un seul aller-retour vers Supabase au lieu de quatre.
   // La RLS ne renvoie rien si le retour appartient à quelqu'un d'autre : page 404,
   // et l'analyse n'est jamais affichée sans son retour.
-  const [user, { data: feedback }, { data: analysis }] = await Promise.all([
+  const [user, { data: feedback }, { data: analysis }, { data: similar }] = await Promise.all([
     getCurrentUser(),
     supabase
       .from("feedback")
@@ -30,11 +31,16 @@ export default async function FeedbackDetailPage({ params }: { params: Promise<{
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle<Analysis>(),
+    // Retours au sens proche (embeddings et pgvector) ; la RLS limite un joueur à ses propres retours
+    supabase.rpc("similar_feedback", { target_id: id }),
   ]);
 
   if (!feedback) {
     notFound();
   }
+
+  // Fonction absente (script SQL pas encore exécuté) ou erreur : simplement aucun retour similaire
+  const similarRows = (similar ?? []) as SimilarRow[];
 
   let screenshotUrl: string | null = null;
   if (feedback.screenshot_path) {
@@ -90,6 +96,8 @@ export default async function FeedbackDetailPage({ params }: { params: Promise<{
           </p>
         )}
       </div>
+
+      {similarRows.length > 0 && <SimilarFeedback rows={similarRows} adminView={isAdmin(user)} />}
     </main>
   );
 }
