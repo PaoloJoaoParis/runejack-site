@@ -1,12 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import AnalysisCard from "@/components/AnalysisCard";
-import { AiBlobWarpAvatar } from "@/components/ui/ai-blob-warp";
+import AiConversation, { type ConversationPhase, type SubmittedFeedback } from "@/components/AiConversation";
+import AiOrb from "@/components/AiOrb";
 import { HaloDropzone } from "@/components/ui/halo-dropzone";
-import { HaloProgress } from "@/components/ui/halo-progress";
 import { HaloSegmented } from "@/components/ui/halo-segmented";
 import { PromptComposer } from "@/components/ui/prompt-composer";
 import {
@@ -121,14 +119,8 @@ async function uploadScreenshot(file: File): Promise<string> {
   return path;
 }
 
-// Étapes de l'envoi, avec leur avancement dans la barre de progression (null : durée inconnue)
-const STEPS = {
-  upload: { label: "Envoi de la capture…", progress: 20 },
-  save: { label: "Enregistrement du retour…", progress: 45 },
-  analyse: { label: "L'IA analyse ton retour…", progress: null },
-} as const;
-
-type Step = keyof typeof STEPS;
+// Après une frappe, l'orbe « écoute » encore un court instant
+const LISTENING_MS = 900;
 
 export default function FeedbackForm() {
   const formRef = useRef<HTMLFormElement>(null);
@@ -137,34 +129,46 @@ export default function FeedbackForm() {
   const [version, setVersion] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<Step | null>(null);
   const [error, setError] = useState("");
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [typing, setTyping] = useState(false);
+
+  // Conversation avec l'IA, ouverte dès l'envoi et gardée jusqu'au prochain retour
+  const [submitted, setSubmitted] = useState<SubmittedFeedback | null>(null);
+  const [phase, setPhase] = useState<ConversationPhase | null>(null);
   const [feedbackId, setFeedbackId] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
-  const [remaining, setRemaining] = useState<number | null>(null);
 
+  const loading = phase === "sending" || phase === "thinking";
   const length = content.trim().length;
   const isContentValid = length >= LIMITS.contentMin && length <= LIMITS.contentMax;
   const isFileValid = file === null || (file.type in EXTENSION_BY_TYPE && file.size <= MAX_SCREENSHOT_SIZE);
   const isFormValid = type !== null && isContentValid && isFileValid;
 
+  // L'orbe réagit pendant que le joueur écrit
+  useEffect(() => {
+    if (!typing) return;
+    const timer = setTimeout(() => setTyping(false), LISTENING_MS);
+    return () => clearTimeout(timer);
+  }, [typing, content]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isFormValid || loading) return;
-    setLoading(true);
+    if (!isFormValid || loading || type === null) return;
+
     setError("");
     setFeedbackId(null);
     setAnalysis(null);
+    setSubmitted({ type, content: content.trim(), hasScreenshot: file !== null });
+    setPhase("sending");
 
+    let saved = false;
     try {
       let screenshotPath: string | undefined;
       if (file) {
-        setStep("upload");
         screenshotPath = await uploadScreenshot(file);
       }
 
-      setStep("save");
       const response = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -178,10 +182,14 @@ export default function FeedbackForm() {
       }
 
       if (!response.ok) {
+        // Refusé (quota, validation) : on revient au formulaire, rempli tel quel
         setError(data.error ?? "Une erreur est survenue.");
+        setSubmitted(null);
+        setPhase(null);
         return;
       }
 
+      saved = true;
       setType(null);
       setContent("");
       setVersion("");
@@ -189,14 +197,27 @@ export default function FeedbackForm() {
       setFileInputKey((key) => key + 1);
       setFeedbackId(data.id);
 
-      setStep("analyse");
+      setPhase("thinking");
       setAnalysis(await waitForAnalysis(data.id));
+      setPhase("done");
     } catch (err) {
       setError(err instanceof TypeError ? "Impossible de contacter le serveur." : (err as Error).message);
-    } finally {
-      setLoading(false);
-      setStep(null);
+      if (saved) {
+        // Le retour est enregistré : seule l'analyse a échoué, la conversation reste affichée
+        setPhase("failed");
+      } else {
+        setSubmitted(null);
+        setPhase(null);
+      }
     }
+  }
+
+  function reset() {
+    setSubmitted(null);
+    setPhase(null);
+    setFeedbackId(null);
+    setAnalysis(null);
+    setError("");
   }
 
   // Ce qui manque encore pour pouvoir envoyer
@@ -208,115 +229,132 @@ export default function FeedbackForm() {
   ].filter(Boolean);
 
   return (
-    <div className="flex flex-col gap-8">
-      <form ref={formRef} onSubmit={submit} className="glass flex flex-col gap-7 p-6 sm:p-8">
-        <fieldset>
-          <legend className="label mb-3">Type de retour</legend>
-          <HaloSegmented
-            className="w-full sm:w-auto"
-            items={DECLARED_TYPES.map((t) => ({ value: t, label: DECLARED_TYPE_LABELS[t] }))}
-            value={type ?? ""}
-            onValueChange={(next) => setType(next as DeclaredType)}
-            disabled={loading}
+    <AnimatePresence mode="wait">
+      {submitted && phase ? (
+        <motion.div key="conversation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -12 }}>
+          <AiConversation
+            submitted={submitted}
+            phase={phase}
+            analysis={analysis}
+            error={error}
+            feedbackId={feedbackId}
+            onReset={reset}
           />
-        </fieldset>
-
-        <div>
-          <label htmlFor="content" className="label">
-            Ton retour
-          </label>
-          <PromptComposer
-            id="content"
-            aria-label="Ton retour"
-            className="max-w-none"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Décris ce qui s'est passé, ce que tu attendais, et ce que tu en penses…"
-            isLoading={loading}
-            loadingText={step ? STEPS[step].label : "Envoi…"}
-            onSend={() => formRef.current?.requestSubmit()}
-            rows={6}
-            maxAutoGrowPx={360}
-          />
-          <p className="mt-2 mb-0 flex justify-between text-sm">
-            <span>Ctrl + Entrée pour envoyer</span>
-            <span className={isContentValid || length === 0 ? "" : "text-[var(--danger)]"}>
-              {length} / {LIMITS.contentMax}
-            </span>
-          </p>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-[1fr_1.4fr]">
-          <div>
-            <label htmlFor="version" className="label">
-              Version du jeu <span className="font-normal text-[var(--muted-foreground)]">(facultatif)</span>
-            </label>
-            <input
-              id="version"
-              className="field"
-              value={version}
-              onChange={(e) => setVersion(e.target.value)}
-              maxLength={LIMITS.versionMax}
-              placeholder="0.76"
-            />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="form"
+          className="flex flex-col gap-6"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -16, filter: "blur(6px)" }}
+          transition={{ duration: 0.35 }}
+        >
+          {/* L'assistant, présent avant même l'envoi : il « écoute » quand le joueur écrit */}
+          <div className="flex items-center gap-4">
+            <AiOrb state={typing ? "listening" : "idle"} size={52} />
+            <div>
+              <p className="m-0 font-medium text-[var(--foreground)]">Assistant Runejack</p>
+              <p className="m-0 text-sm">
+                {typing
+                  ? "Je t'écoute…"
+                  : "Je lirai ton retour, je le trierai pour l'équipe et, s'il parle d'équilibrage, je vérifierai les statistiques."}
+              </p>
+            </div>
           </div>
 
-          <div>
-            <span className="label">
-              Capture d&apos;écran <span className="font-normal text-[var(--muted-foreground)]">(facultatif)</span>
-            </span>
-            <HaloDropzone
-              key={fileInputKey}
-              accept="image/png,image/jpeg,image/webp"
-              onFiles={(files) => setFile(files[0] ?? null)}
-              disabled={loading}
-              successResetMs={0}
-              emptyLabel="Dépose ta capture ou parcours"
-              successLabel={isFileValid ? "Capture prête" : "Ce fichier ne convient pas"}
-              formatHint="PNG, JPEG ou WebP, 2 Mo maximum"
-            />
-          </div>
-        </div>
+          <form ref={formRef} onSubmit={submit} className="glass flex flex-col gap-7 p-6 sm:p-8">
+            <fieldset>
+              <legend className="label mb-3">Type de retour</legend>
+              <HaloSegmented
+                className="w-full sm:w-auto"
+                items={DECLARED_TYPES.map((t) => ({ value: t, label: DECLARED_TYPE_LABELS[t] }))}
+                value={type ?? ""}
+                onValueChange={(next) => setType(next as DeclaredType)}
+                disabled={loading}
+              />
+            </fieldset>
 
-        <div className="flex flex-wrap items-center gap-4">
-          <button type="submit" className="btn" disabled={!isFormValid || loading}>
-            {loading ? "Envoi en cours…" : "Envoyer le retour"}
-          </button>
-          {!loading && missing.length > 0 && <span className="text-sm text-[var(--muted-foreground)]">Pour envoyer : {missing.join(", ")}.</span>}
-          {remaining !== null && (
-            <span className="ml-auto text-sm text-[var(--muted-foreground)]">Envois restants cette heure : {remaining}</span>
+            <div>
+              <label htmlFor="content" className="label">
+                Ton retour
+              </label>
+              <PromptComposer
+                id="content"
+                aria-label="Ton retour"
+                className="max-w-none"
+                value={content}
+                onChange={(e) => {
+                  setContent(e.target.value);
+                  setTyping(true);
+                }}
+                placeholder="Décris ce qui s'est passé, ce que tu attendais, et ce que tu en penses…"
+                isLoading={loading}
+                loadingText="Envoi…"
+                onSend={() => formRef.current?.requestSubmit()}
+                rows={6}
+                maxAutoGrowPx={360}
+              />
+              <p className="mt-2 mb-0 flex justify-between text-sm">
+                <span>Ctrl + Entrée pour envoyer</span>
+                <span className={isContentValid || length === 0 ? "" : "text-[var(--danger)]"}>
+                  {length} / {LIMITS.contentMax}
+                </span>
+              </p>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-[1fr_1.4fr]">
+              <div>
+                <label htmlFor="version" className="label">
+                  Version du jeu <span className="font-normal text-[var(--muted-foreground)]">(facultatif)</span>
+                </label>
+                <input
+                  id="version"
+                  className="field"
+                  value={version}
+                  onChange={(e) => setVersion(e.target.value)}
+                  maxLength={LIMITS.versionMax}
+                  placeholder="0.76"
+                />
+              </div>
+
+              <div>
+                <span className="label">
+                  Capture d&apos;écran <span className="font-normal text-[var(--muted-foreground)]">(facultatif)</span>
+                </span>
+                <HaloDropzone
+                  key={fileInputKey}
+                  accept="image/png,image/jpeg,image/webp"
+                  onFiles={(files) => setFile(files[0] ?? null)}
+                  disabled={loading}
+                  successResetMs={0}
+                  emptyLabel="Dépose ta capture ou parcours"
+                  successLabel={isFileValid ? "Capture prête" : "Ce fichier ne convient pas"}
+                  formatHint="PNG, JPEG ou WebP, 2 Mo maximum"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <button type="submit" className="btn" disabled={!isFormValid || loading}>
+                Envoyer le retour
+              </button>
+              {missing.length > 0 && (
+                <span className="text-sm text-[var(--muted-foreground)]">Pour envoyer : {missing.join(", ")}.</span>
+              )}
+              {remaining !== null && (
+                <span className="ml-auto text-sm text-[var(--muted-foreground)]">Envois restants cette heure : {remaining}</span>
+              )}
+            </div>
+          </form>
+
+          {error && (
+            <p role="alert" className="alert m-0">
+              {error}
+            </p>
           )}
-        </div>
-      </form>
-
-      <AnimatePresence>
-        {step && (
-          <motion.div
-            key="progress"
-            className="glass flex items-center gap-4 p-5"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-          >
-            <AiBlobWarpAvatar className="size-10 shrink-0" warpProps={{ speed: 3 }} />
-            <HaloProgress className="flex-1" label={STEPS[step].label} value={STEPS[step].progress} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {error && (
-        <p role="alert" className="alert m-0">
-          {error}
-        </p>
+        </motion.div>
       )}
-
-      {feedbackId && (
-        <p className="notice m-0">
-          Merci, ton retour est enregistré. <Link href={`/retours/${feedbackId}`}>Voir mon retour</Link>
-        </p>
-      )}
-
-      {analysis && <AnalysisCard analysis={analysis} fresh />}
-    </div>
+    </AnimatePresence>
   );
 }
