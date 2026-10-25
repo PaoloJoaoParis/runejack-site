@@ -53,8 +53,8 @@ const FEATURES = [
   },
   {
     icon: "✦",
-    title: "La bêta privée",
-    text: "Demande ton accès : ton compte de jeu s'ouvre avec la même adresse, sans inscription.",
+    title: "La bêta",
+    text: "Demande ton accès : il s'ouvre aussitôt, avec la même adresse que sur le site, sans inscription.",
     href: "/beta",
     cta: "Rejoindre la bêta",
   },
@@ -69,7 +69,7 @@ export default async function HomePage() {
         {/* Animation en CSS : le texte principal reste visible même avant le chargement du JavaScript */}
         <div className="fade-up">
           <HaloBadge live variant="outline" className="mb-5">
-            Bêta privée ouverte
+            Bêta ouverte · accès immédiat
           </HaloBadge>
           <h1 className="shimmer mb-4! text-[clamp(4rem,11vw,7.5rem)]!">Runejack</h1>
           <p className="max-w-xl text-lg">
@@ -181,7 +181,7 @@ export default async function HomePage() {
           <div className="flex flex-col items-start gap-6 p-8 md:flex-row md:items-center md:justify-between md:p-10">
             <div>
               <h2 className="mb-2 text-4xl">Prêt à tirer ta première main ?</h2>
-              <p className="m-0">Demande ton accès : l&apos;équipe ouvre la bêta par vagues.</p>
+              <p className="m-0">Demande ton accès : il s&apos;ouvre tout de suite, sans attente.</p>
             </div>
             <Link href="/beta" className="btn shrink-0">
               Demander l&apos;accès

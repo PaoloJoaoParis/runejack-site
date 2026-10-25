@@ -2,7 +2,9 @@
 
 ## Présentation
 
-Runejack est un roguelike de cartes (un blackjack avec des héros, des runes et des contrats) en bêta privée. Ce site est son compagnon : les joueurs y demandent l'accès à la bêta, envoient leurs retours sur le jeu et consultent leurs statistiques.
+Runejack est un roguelike de cartes (un blackjack avec des héros, des runes et des contrats) en bêta. Ce site est son compagnon, ouvert à tous : les joueurs y obtiennent leur accès au jeu, envoient leurs retours et consultent leurs statistiques.
+
+Le jeu, lui, est fermé : seuls les e-mails de sa liste d'accès peuvent y créer un compte. Une demande de bêta faite sur le site ajoute l'e-mail du joueur à cette liste **immédiatement**, sans validation par l'équipe ; le bouton « Jouer » ouvre ensuite le jeu déjà connecté.
 
 Le cœur du projet suit le principe des fiches de révision :
 
@@ -43,6 +45,8 @@ Navigateur ──► Vercel (Next.js 16, région dub1)
 | **Supabase Postgres** | Retours, analyses et demandes de bêta, protégés par Row Level Security. |
 | **Upstash Redis** | Limitation de débit (5 retours par heure et par joueur, 3 demandes de bêta par jour), et cache d'une minute des statistiques de chaque joueur (clé : empreinte SHA-256 de l'e-mail). |
 | **Groq** | Modèle d'IA, appelé uniquement côté serveur. |
+| **Google AI Studio (Gemini)** | Embeddings des retours (`gemini-embedding-001`, offre gratuite) pour détecter les doublons, côté serveur uniquement. Groq ne propose pas d'embeddings. |
+| **Cloudflare Workers (API du jeu)** | Catalogue et statistiques du jeu pour le verdict d'équilibrage, liste d'accès à la bêta, stats des joueurs et connexion au jeu. |
 
 ### Briques au choix, et pourquoi
 
@@ -51,9 +55,9 @@ Navigateur ──► Vercel (Next.js 16, région dub1)
 | **Génération asynchrone (Upstash QStash)** | L'analyse enchaîne jusqu'à deux appels au modèle et un appel à l'API du jeu : trop long pour faire attendre la requête. Le retour est enregistré et la réponse est immédiate (`202`) ; QStash appelle ensuite le worker, qui vérifie la signature et réessaie jusqu'à 3 fois en cas d'échec. |
 | **Temps réel (Supabase Realtime)** | Le joueur voit son analyse apparaître sans recharger la page, et le tableau `/admin` se met à jour dès qu'un retour arrive ou change de statut. |
 | **Stockage de fichiers (Supabase Storage)** | Une capture vaut souvent mieux qu'une description de bug. Bucket privé, 2 Mo maximum, images seulement ; chaque joueur ne dépose et ne lit que son dossier (les admins lisent tout), via des URL signées de 5 minutes. |
-| **Notifications par e-mail (Resend)** | Quand un admin accepte une demande, le joueur reçoit un e-mail d'accueil avec le lien du jeu. Un échec d'envoi n'annule pas l'acceptation. |
+| **Notifications par e-mail (Resend)** | Dès que l'accès au jeu d'un joueur s'ouvre, il reçoit un e-mail d'accueil avec le lien du jeu. Un échec d'envoi n'annule pas l'accès. |
 | **Observabilité de l'IA (Langfuse)** | Chaque appel au modèle est tracé avec ses tokens, sa latence et son coût : utile pour régler la consigne et surveiller le quota gratuit. |
-| **Gestion des secrets (Infisical)** | Secrets centralisés dans un projet Infisical (`.infisical.yaml`), injectés en local par `npm run dev:secrets` au lieu d'un fichier `.env.local`. |
+| **Gestion des secrets (Infisical)** | Une seule source pour les 24 secrets : l'environnement `dev` d'Infisical est injecté en local par `npm run dev:secrets` (aucun fichier `.env.local` nécessaire), et l'environnement `prod` est synchronisé automatiquement vers les variables de Vercel (Secret Sync). Changer une clé se fait à un seul endroit. |
 
 ### Option bonus : recherche sémantique (embeddings et pgvector)
 
@@ -93,18 +97,19 @@ auth.users ─┬─< feedback ──< analyses
 | --- | --- | --- |
 | `feedback` | Retour du joueur : type déclaré, texte (30 à 3000 caractères), chemin de la capture, version du jeu (ajoutée automatiquement par le serveur), état de l'analyse, statut de suivi, embedding (`vector(768)`) | `user_id` → `auth.users` |
 | `analyses` | Résultat de l'IA : catégorie, gravité, résumé, étapes, cible, verdict, preuves chiffrées, réponse proposée, modèle utilisé | `feedback_id` → `feedback`, `user_id` → `auth.users` |
-| `beta_requests` | Demande d'accès : pseudo, motivation, consentement, statut | `user_id` → `auth.users` (une demande par compte) |
+| `beta_requests` | Demande d'accès : pseudo, motivation, consentement, statut (acceptée dès que le jeu a ajouté l'e-mail à sa liste d'accès) | `user_id` → `auth.users` (une demande par compte) |
 
 **Règles de sécurité** :
 - Row Level Security activée sur les trois tables ;
 - un joueur ne lit et ne crée que ses propres lignes : `auth.uid() = user_id` ;
 - les admins (rôle posé dans `app_metadata`, que l'utilisateur ne peut pas modifier) lisent et traitent tout, via la fonction `public.is_admin()` ;
 - les analyses ne sont écrites que par le worker, avec le client administrateur (traitement système, sans utilisateur) ;
+- le statut d'une demande de bêta est écrit par le serveur avec le client administrateur, une fois que le jeu a confirmé l'accès : le joueur ne peut pas s'accorder l'accès lui-même ;
 - contraintes en base : une capture est forcément rangée dans le dossier de son auteur, et les valeurs des statuts sont bornées ;
 - Storage : bucket `screenshots` privé, avec politiques par dossier utilisateur ;
 - la fonction `similar_feedback` est en `security invoker` : la recherche de doublons respecte la RLS.
 
-Le client administrateur (`SUPABASE_SECRET_KEY`) n'est utilisé que pour les traitements système : worker d'analyse, contrôles de `/admin`, marquage d'erreur si la file est injoignable. Partout ailleurs, les requêtes partent avec la session du joueur, et la RLS s'applique.
+Le client administrateur (`SUPABASE_SECRET_KEY`) n'est utilisé que pour les traitements système : worker d'analyse, ouverture des accès à la bêta, contrôles de `/admin`, marquage d'erreur si la file est injoignable. Partout ailleurs, les requêtes partent avec la session du joueur, et la RLS s'applique.
 
 ## Lancer le projet en local
 

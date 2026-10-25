@@ -20,7 +20,8 @@ export default async function Header() {
   ];
 
   return (
-    <header className="sticky top-3 z-50 px-3">
+    // Nommé pour la transition entre les pages : il reste immobile pendant que le contenu change
+    <header className="sticky top-3 z-50 px-3" style={{ viewTransitionName: "site-header" }}>
       <nav className="mx-auto flex max-w-5xl flex-wrap items-center gap-3 rounded-2xl border border-[var(--border)] bg-[rgba(20,10,26,0.72)] px-4 py-2.5 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl">
         <Link
           href="/"

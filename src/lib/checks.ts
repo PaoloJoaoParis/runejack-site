@@ -203,10 +203,35 @@ const embeddingsCheck: Check = {
   },
 };
 
+const langfuseCheck: Check = {
+  service: "Langfuse",
+  description: "Observabilité de l'IA : traces, tokens, latence et coût",
+  run: async () => {
+    const baseUrl = process.env.LANGFUSE_BASE_URL;
+    const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
+    const secretKey = process.env.LANGFUSE_SECRET_KEY;
+    if (!baseUrl || !publicKey || !secretKey) {
+      throw new Error("Variables LANGFUSE_BASE_URL, LANGFUSE_PUBLIC_KEY ou LANGFUSE_SECRET_KEY manquantes");
+    }
+
+    // Lecture du projet avec les clés : vérifie qu'elles sont valides pour cet hôte (région)
+    const response = await fetch(`${baseUrl}/api/public/projects`, {
+      headers: { Authorization: `Basic ${btoa(`${publicKey}:${secretKey}`)}` },
+      cache: "no-store",
+    });
+    if (response.status === 401) throw new Error("Clés refusées : vérifier les clés et la région de LANGFUSE_BASE_URL");
+    if (!response.ok) throw new Error(`Langfuse a répondu avec le statut ${response.status}`);
+
+    const data = (await response.json()) as { data?: { name?: string }[] };
+    return `Projet « ${data.data?.[0]?.name ?? "inconnu"} » sur ${new URL(baseUrl).host}`;
+  },
+};
+
 export const CHECKS: Check[] = [
   vercelCheck,
   aiCheck,
   embeddingsCheck,
+  langfuseCheck,
   databaseCheck,
   authCheck,
   storageCheck,

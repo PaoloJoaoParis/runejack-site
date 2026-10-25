@@ -26,6 +26,11 @@ export default function BetaRequestForm() {
       });
       const data = await response.json();
 
+      if (response.status === 502) {
+        // Demande enregistrée, jeu injoignable : la page affiche le bouton pour réessayer
+        router.refresh();
+        return;
+      }
       if (!response.ok) {
         setError(data.error ?? "Une erreur est survenue.");
         return;
@@ -78,7 +83,7 @@ export default function BetaRequestForm() {
         J&apos;accepte que mon adresse e-mail serve à m&apos;inviter dans la bêta et à me contacter à son sujet.
       </label>
       <button type="submit" className="btn w-fit" disabled={!isValid || sending}>
-        {sending ? "Envoi…" : "Demander l'accès"}
+        {sending ? "Ouverture de ton accès…" : "Ouvrir mon accès"}
       </button>
       {error && (
         <p role="alert" className="alert m-0">

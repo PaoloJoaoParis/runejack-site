@@ -8,6 +8,7 @@ import { isAdmin } from "@/lib/admin";
 import { DECLARED_TYPE_LABELS, type Analysis, type Feedback } from "@/lib/feedback";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/supabase/user";
+import { SIMILARITY_THRESHOLD } from "@/lib/review-filters";
 
 export default async function FeedbackDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,7 +33,7 @@ export default async function FeedbackDetailPage({ params }: { params: Promise<{
       .limit(1)
       .maybeSingle<Analysis>(),
     // Retours au sens proche (embeddings et pgvector) ; la RLS limite un joueur à ses propres retours
-    supabase.rpc("similar_feedback", { target_id: id }),
+    supabase.rpc("similar_feedback", { target_id: id, min_similarity: SIMILARITY_THRESHOLD }),
   ]);
 
   if (!feedback) {

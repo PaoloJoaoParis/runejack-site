@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Pages publiques, comparées en égalité stricte
-const PUBLIC_PAGES = ["/"];
+const PUBLIC_PAGES = ["/", "/beta"];
 // Préfixes publics. Les routes /api vérifient elles-mêmes la session.
 const PUBLIC_PREFIXES = ["/connexion", "/auth", "/api"];
 
